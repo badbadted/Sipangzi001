@@ -1,207 +1,125 @@
-import React, { useState, useEffect } from 'react';
-import { Trophy, Timer, History, BarChart2 } from 'lucide-react';
-import RacerList from './components/RacerList';
-import RecordForm from './components/RecordForm';
-import HistoryLog from './components/HistoryLog';
-import Analysis from './components/Analysis';
-import { Racer, Record, Distance } from './types';
+import React, { useState, useEffect, useRef } from 'react';
+import { Timer, Watch, Play, Pause, RotateCcw, Flag } from 'lucide-react';
+import { ref, push, onValue, set, remove } from "firebase/database";
+import { db } from "./firebase"; // 確保 firebase.ts 在同一個資料夾 
+import { AppMode, Lap } from './types';
 
-// Robust ID generator that works in non-secure contexts (e.g. some local dev environments)
-const generateId = () => {
-  if (typeof crypto !== 'undefined' && crypto.randomUUID) {
-    return crypto.randomUUID();
-  }
-  return Date.now().toString(36) + Math.random().toString(36).substring(2);
-};
+const App: React.FC = () => {
+  const [mode, setMode] = useState<AppMode>(AppMode.STOPWATCH);
+  
+  // 計時器相關 State
+  const [time, setTime] = useState<number>(0);
+  const [isRunning, setIsRunning] = useState<boolean>(false);
+  const [laps, setLaps] = useState<any[]>([]);
+  const timerRef = useRef<NodeJS.Timeout | null>(null);
 
-// Helper to get local date string YYYY-MM-DD
-const getLocalDateStr = () => {
-  const now = new Date();
-  const offset = now.getTimezoneOffset() * 60000;
-  const localDate = new Date(now.getTime() - offset);
-  return localDate.toISOString().split('T')[0];
-};
-
-function App() {
-  const [activeTab, setActiveTab] = useState<'record' | 'history' | 'analysis'>('record');
-  const [racers, setRacers] = useState<Racer[]>([]);
-  const [records, setRecords] = useState<Record[]>([]);
-  const [selectedRacerId, setSelectedRacerId] = useState<string | null>(null);
-
-  // Load data from LocalStorage on mount
+  // --- 1. 監聽 Firebase 雲端紀錄 ---
   useEffect(() => {
-    const savedRacers = localStorage.getItem('pb_racers');
-    const savedRecords = localStorage.getItem('pb_records');
-    
-    if (savedRacers) setRacers(JSON.parse(savedRacers));
-    if (savedRecords) setRecords(JSON.parse(savedRecords));
+    const lapsRef = ref(db, 'laps');
+    const unsubscribe = onValue(lapsRef, (snapshot) => {
+      const data = snapshot.val();
+      if (data) {
+        // 將 Firebase 物件轉換為陣列並排序
+        const firebaseLaps = Object.entries(data).map(([key, value]: [string, any]) => ({
+          id: key,
+          time: value.time,
+          split: value.split,
+          createdAt: value.createdAt
+        })).sort((a, b) => b.createdAt - a.createdAt); // 最新的在前
+        setLaps(firebaseLaps);
+      } else {
+        setLaps([]);
+      }
+    });
+    return () => unsubscribe();
   }, []);
 
-  // Save data whenever it changes
+  // --- 2. 計時邏輯 ---
   useEffect(() => {
-    localStorage.setItem('pb_racers', JSON.stringify(racers));
-  }, [racers]);
-
-  useEffect(() => {
-    localStorage.setItem('pb_records', JSON.stringify(records));
-  }, [records]);
-
-  // Set default racer selection
-  useEffect(() => {
-    if (racers.length > 0 && !selectedRacerId) {
-      setSelectedRacerId(racers[0].id);
-    } else if (racers.length === 0) {
-      setSelectedRacerId(null);
+    if (isRunning) {
+      timerRef.current = setInterval(() => {
+        setTime((prevTime) => prevTime + 10);
+      }, 10);
+    } else {
+      if (timerRef.current) clearInterval(timerRef.current);
     }
-  }, [racers, selectedRacerId]);
+    return () => {
+      if (timerRef.current) clearInterval(timerRef.current);
+    };
+  }, [isRunning]);
 
-  const addRacer = (name: string, color: string) => {
-    const newRacer: Racer = {
-      id: generateId(),
-      name,
-      avatarColor: color,
+  // --- 3. 功能按鈕 ---
+  const handleStartPause = () => setIsRunning(!isRunning);
+
+  const handleReset = () => {
+    setIsRunning(false);
+    setTime(0);
+    if (window.confirm("要清空雲端紀錄嗎？")) {
+      remove(ref(db, 'laps'));
+    }
+  };
+
+  const handleRecordLap = () => {
+    const lastLapTime = laps.length > 0 ? laps[0].time : 0;
+    const newLapData = {
+      time: time,
+      split: time - lastLapTime,
       createdAt: Date.now()
     };
-    const updatedRacers = [...racers, newRacer];
-    setRacers(updatedRacers);
-    setSelectedRacerId(newRacer.id);
+    push(ref(db, 'laps'), newLapData);
   };
 
-  const deleteRacer = (id: string) => {
-    setRacers(prev => prev.filter(r => r.id !== id));
-    setRecords(prev => prev.filter(r => r.racerId !== id));
-    if (selectedRacerId === id) {
-        setSelectedRacerId(null);
-    }
-  };
-
-  const addRecord = (distance: Distance, timeSeconds: number) => {
-    if (!selectedRacerId) return;
-    
-    const newRecord: Record = {
-      id: generateId(),
-      racerId: selectedRacerId,
-      distance,
-      timeSeconds,
-      timestamp: Date.now(),
-      dateStr: getLocalDateStr() // Use local date
-    };
-    
-    setRecords(prev => [...prev, newRecord]);
-    
-    // Optional: Visual feedback or vibration
-    if (navigator.vibrate) navigator.vibrate(50);
-  };
-
-  const deleteRecord = (id: string) => {
-    setRecords(prev => prev.filter(r => r.id !== id));
-  };
-
-  const renderContent = () => {
-    switch (activeTab) {
-      case 'record':
-        return (
-          <div className="animate-fade-in-up">
-            <RacerList 
-              racers={racers} 
-              selectedRacerId={selectedRacerId} 
-              onSelectRacer={setSelectedRacerId}
-              onAddRacer={addRacer}
-              onDeleteRacer={deleteRacer}
-            />
-            {racers.length > 0 && selectedRacerId ? (
-              <RecordForm racerId={selectedRacerId} onAddRecord={addRecord} />
-            ) : null}
-            
-            <div className="mt-8">
-              <div className="flex items-center justify-between mb-4">
-                <h3 className="font-bold text-gray-600">今日最新紀錄</h3>
-                <button 
-                  onClick={() => setActiveTab('history')}
-                  className="text-xs text-indigo-600 font-medium hover:underline"
-                >
-                  查看全部
-                </button>
-              </div>
-              <HistoryLog 
-                racers={racers} 
-                records={records.filter(r => r.dateStr === getLocalDateStr())} 
-                onDeleteRecord={deleteRecord}
-              />
-            </div>
-          </div>
-        );
-      case 'history':
-        return (
-          <div className="animate-fade-in">
-            <h2 className="text-xl font-bold text-gray-800 mb-6 flex items-center gap-2">
-              <History className="text-indigo-500" />
-              歷史紀錄
-            </h2>
-            <HistoryLog racers={racers} records={records} onDeleteRecord={deleteRecord} />
-          </div>
-        );
-      case 'analysis':
-        return (
-          <div className="animate-fade-in">
-            <h2 className="text-xl font-bold text-gray-800 mb-6 flex items-center gap-2">
-              <BarChart2 className="text-indigo-500" />
-              數據分析
-            </h2>
-            <Analysis racers={racers} records={records} />
-          </div>
-        );
-    }
+  // 格式化時間顯示 (00:00.00)
+  const formatTime = (ms: number) => {
+    const minutes = Math.floor(ms / 60000);
+    const seconds = Math.floor((ms % 60000) / 1000);
+    const centiseconds = Math.floor((ms % 1000) / 10);
+    return `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}.${centiseconds.toString().padStart(2, '0')}`;
   };
 
   return (
-    <div className="min-h-screen pb-24 max-w-md mx-auto bg-gray-50 shadow-2xl overflow-hidden relative">
-      {/* Header */}
-      <header className="bg-white pt-6 pb-4 px-6 sticky top-0 z-20 shadow-sm border-b border-gray-100">
-        <div className="flex items-center gap-3">
-          <div className="w-10 h-10 bg-indigo-600 rounded-xl flex items-center justify-center text-white shadow-lg shadow-indigo-200">
-            <Trophy size={20} />
-          </div>
-          <div>
-            <h1 className="text-lg font-bold text-gray-900 tracking-tight">滑步車測速紀錄</h1>
-            <p className="text-xs text-gray-500 font-medium">Speedy Striders Tracker</p>
-          </div>
-        </div>
-      </header>
-
-      {/* Main Content */}
-      <main className="p-6">
-        {renderContent()}
-      </main>
-
-      {/* Bottom Navigation */}
-      <nav className="fixed bottom-0 w-full max-w-md bg-white border-t border-gray-100 px-6 py-3 flex justify-between items-center z-30 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)]">
-        <button 
-          onClick={() => setActiveTab('record')}
-          className={`flex flex-col items-center gap-1 transition-colors ${activeTab === 'record' ? 'text-indigo-600' : 'text-gray-400 hover:text-gray-600'}`}
-        >
-          <Timer size={24} strokeWidth={activeTab === 'record' ? 2.5 : 2} />
-          <span className="text-[10px] font-bold">測速</span>
-        </button>
+    <div className="min-h-screen bg-gray-950 text-gray-100 font-sans flex items-center justify-center p-4">
+      <div className="w-full max-w-2xl bg-gray-900/40 backdrop-blur-xl border border-gray-800 rounded-3xl shadow-2xl flex flex-col h-[85vh]">
         
-        <button 
-          onClick={() => setActiveTab('history')}
-          className={`flex flex-col items-center gap-1 transition-colors ${activeTab === 'history' ? 'text-indigo-600' : 'text-gray-400 hover:text-gray-600'}`}
-        >
-          <History size={24} strokeWidth={activeTab === 'history' ? 2.5 : 2} />
-          <span className="text-[10px] font-bold">紀錄</span>
-        </button>
-        
-        <button 
-          onClick={() => setActiveTab('analysis')}
-          className={`flex flex-col items-center gap-1 transition-colors ${activeTab === 'analysis' ? 'text-indigo-600' : 'text-gray-400 hover:text-gray-600'}`}
-        >
-          <BarChart2 size={24} strokeWidth={activeTab === 'analysis' ? 2.5 : 2} />
-          <span className="text-[10px] font-bold">分析</span>
-        </button>
-      </nav>
+        <header className="p-2 grid grid-cols-2 gap-2 bg-gray-900/50 m-4 rounded-2xl border border-gray-800/50">
+          <button onClick={() => setMode(AppMode.STOPWATCH)} className={`flex items-center justify-center gap-2 py-3 rounded-xl ${mode === AppMode.STOPWATCH ? 'bg-gray-800 text-white' : 'text-gray-500'}`}>
+            <Watch size={18} /><span>Stopwatch</span>
+          </button>
+          <button onClick={() => setMode(AppMode.TIMER)} className={`flex items-center justify-center gap-2 py-3 rounded-xl ${mode === AppMode.TIMER ? 'bg-gray-800 text-white' : 'text-gray-500'}`}>
+            <Timer size={18} /><span>Timer</span>
+          </button>
+        </header>
+
+        <main className="flex-1 flex flex-col items-center justify-center p-6">
+          <div className="text-6xl font-mono mb-12 tracking-tighter text-indigo-400">
+            {formatTime(time)}
+          </div>
+
+          <div className="flex gap-6 mb-12">
+            <button onClick={handleReset} className="p-4 bg-gray-800 rounded-full hover:bg-gray-700 transition-colors"><RotateCcw size={28} /></button>
+            <button onClick={handleStartPause} className="p-6 bg-indigo-600 rounded-full hover:bg-indigo-500 shadow-lg shadow-indigo-500/20 transition-all">
+              {isRunning ? <Pause size={32} fill="white" /> : <Play size={32} fill="white" />}
+            </button>
+            <button onClick={handleRecordLap} disabled={!isRunning} className="p-4 bg-gray-800 rounded-full hover:bg-gray-700 disabled:opacity-30"><Flag size={28} /></button>
+          </div>
+
+          <div className="w-full flex-1 overflow-y-auto no-scrollbar border-t border-gray-800 pt-4">
+            {laps.map((lap, index) => (
+              <div key={lap.id} className="flex justify-between py-3 border-bottom border-gray-800/50">
+                <span className="text-gray-500">Lap {laps.length - index}</span>
+                <span className="font-mono text-indigo-300">+{formatTime(lap.split)}</span>
+                <span className="font-mono">{formatTime(lap.time)}</span>
+              </div>
+            ))}
+          </div>
+        </main>
+
+        <footer className="p-6 text-center text-xs text-gray-600 border-t border-gray-800/50">
+            CHRONOS AI v1.0 • Multi-Device Cloud Sync
+        </footer>
+      </div>
     </div>
   );
-}
+};
 
 export default App;
