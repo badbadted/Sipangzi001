@@ -1,0 +1,5 @@
+{
+  "name": "滑步車小車手紀錄 (Push Bike Tracker)",
+  "description": "專為滑步車小選手設計的訓練紀錄 App。支援多位選手管理、不同距離測速 (10m/30m/50m)、秒數登錄，並提供依日期分組的歷史紀錄。",
+  "requestFramePermissions": []
+}
