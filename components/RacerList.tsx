@@ -45,24 +45,25 @@ const RacerList: React.FC<RacerListProps> = ({
 
       {isAdding && (
         <div className="bg-white p-4 rounded-xl shadow-sm mb-4 border border-indigo-100 animate-fade-in-down">
-          <label className="block text-sm font-medium text-gray-700 mb-2">選手姓名 / 暱稱</label>
-          <div className="flex gap-2 mb-4">
+          <label className="block text-sm font-bold text-gray-700 mb-2">選手姓名 / 暱稱</label>
+          <div className="flex flex-col gap-3 mb-4">
             <input
               type="text"
               value={newName}
               onChange={(e) => setNewName(e.target.value)}
               placeholder="例如: 小飛俠"
-              className="flex-1 p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:outline-none"
+              className="w-full p-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:outline-none text-gray-800"
             />
             <button 
               onClick={handleAdd}
               disabled={!newName.trim()}
-              className="bg-indigo-600 text-white px-4 py-2 rounded-lg font-medium disabled:opacity-50 hover:bg-indigo-700 transition-colors"
+              className="w-full bg-indigo-600 text-white px-4 py-3 rounded-xl font-bold disabled:opacity-50 hover:bg-indigo-700 transition-colors flex items-center justify-center gap-2 shadow-sm shadow-indigo-200"
             >
-              建立
+              <Plus size={18} />
+              建立選手
             </button>
           </div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">選擇代表色</label>
+          <label className="block text-sm font-bold text-gray-700 mb-2">選擇代表色</label>
           <div className="flex flex-wrap gap-2">
             {AVATAR_COLORS.map(color => (
               <button
