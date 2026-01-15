@@ -6,7 +6,7 @@ import { getTextColor, getPrimaryColor } from '../themeUtils';
 
 interface RecordFormProps {
   racerId: string | null;
-  onAddRecord: (distance: Distance, time: number) => void;
+  onAddRecord: (distance: Distance, time: number, tenMeterTime?: number) => void;
   theme: Theme;
 }
 
@@ -16,6 +16,8 @@ const RecordForm: React.FC<RecordFormProps> = ({ racerId, onAddRecord, theme }) 
   const currentTheme = themes[theme] || themes['light'];
   const [distance, setDistance] = useState<Distance>(30);
   const [timeStr, setTimeStr] = useState('');
+  const [tenMeterTimeStr, setTenMeterTimeStr] = useState('');
+  const [includeTenMeter, setIncludeTenMeter] = useState(false);
 
   // Load last used time from localStorage on mount
   useEffect(() => {
@@ -56,16 +58,54 @@ const RecordForm: React.FC<RecordFormProps> = ({ racerId, onAddRecord, theme }) 
     }
   };
 
+  const handleTenMeterTimeChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const val = e.target.value;
+    
+    // Allow clearing the input
+    if (val === '') {
+      setTenMeterTimeStr('');
+      return;
+    }
+
+    const regex = /^\d*\.?\d{0,2}$/;
+
+    if (regex.test(val)) {
+      const num = parseFloat(val);
+      
+      if (!isNaN(num)) {
+        if (num >= 0 && num <= 10) {
+          setTenMeterTimeStr(val);
+        }
+      } else if (val === '.') {
+        setTenMeterTimeStr('0.');
+      }
+    }
+  };
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     const time = parseFloat(timeStr);
     if (racerId && time > 0) {
-      onAddRecord(distance, time);
+      const tenMeterTime = includeTenMeter && tenMeterTimeStr ? parseFloat(tenMeterTimeStr) : undefined;
+      onAddRecord(distance, time, tenMeterTime);
       // Save valid time to localStorage for persistence
       localStorage.setItem('pb_last_time', timeStr);
+      // Clear 10 meter time if it was used
+      if (includeTenMeter) {
+        setTenMeterTimeStr('');
+        setIncludeTenMeter(false);
+      }
       // Note: We do NOT clear setTimeStr('') here, so the value remains for the next entry
     }
   };
+
+  // Reset 10 meter input when distance changes
+  useEffect(() => {
+    if (distance === 10) {
+      setIncludeTenMeter(false);
+      setTenMeterTimeStr('');
+    }
+  }, [distance]);
 
   if (!racerId) return null;
 
@@ -104,7 +144,9 @@ const RecordForm: React.FC<RecordFormProps> = ({ racerId, onAddRecord, theme }) 
         </div>
 
         <div className="mb-6">
-          <label className="block text-sm font-medium text-gray-500 mb-2">秒數 (0-10s)</label>
+          <label className="block text-sm font-medium text-gray-500 mb-2">
+            {distance === 10 ? '10米秒數' : `${distance}米秒數`} (0-10s)
+          </label>
           <div className="relative">
             <input
               type="number"
@@ -131,6 +173,64 @@ const RecordForm: React.FC<RecordFormProps> = ({ racerId, onAddRecord, theme }) 
              限制：0 ~ 10 秒，最多兩位小數
           </p>
         </div>
+
+        {/* 10米額外紀錄（僅在選擇 30 米或 50 米時顯示） */}
+        {(distance === 30 || distance === 50) && (
+          <div className="mb-6">
+            <div className="flex items-center justify-between mb-3">
+              <label className="block text-sm font-medium text-gray-500">
+                同時記錄 10 米成績（選填）
+              </label>
+              <button
+                type="button"
+                onClick={() => {
+                  setIncludeTenMeter(!includeTenMeter);
+                  if (includeTenMeter) {
+                    setTenMeterTimeStr('');
+                  }
+                }}
+                className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
+                  includeTenMeter
+                    ? theme === 'cute' ? 'bg-pink-500' :
+                      theme === 'tech' ? 'bg-cyan-500' :
+                      theme === 'dark' ? 'bg-gray-600' :
+                      'bg-gray-700'
+                    : 'bg-gray-300'
+                }`}
+              >
+                <span
+                  className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                    includeTenMeter ? 'translate-x-6' : 'translate-x-1'
+                  }`}
+                />
+              </button>
+            </div>
+            
+            {includeTenMeter && (
+              <div className="relative">
+                <input
+                  type="number"
+                  inputMode="decimal"
+                  step="0.01"
+                  min="0"
+                  max="10"
+                  value={tenMeterTimeStr}
+                  onChange={handleTenMeterTimeChange}
+                  placeholder="輸入 10 米秒數"
+                  className={`w-full text-2xl font-mono font-bold p-3 rounded-xl border outline-none text-center ${
+                    theme === 'cute' ? 'text-gray-800 bg-pink-50 border-pink-200 focus:ring-4 focus:ring-pink-100 focus:border-pink-500' :
+                    theme === 'tech' ? 'text-slate-200 bg-cyan-500/10 border-cyan-500/30 focus:ring-4 focus:ring-cyan-500/20 focus:border-cyan-500' :
+                    theme === 'dark' ? 'text-gray-200 bg-gray-700/50 border-gray-600 focus:ring-4 focus:ring-gray-500/20 focus:border-gray-500' :
+                    'text-gray-900 bg-gray-100 border-gray-300 focus:ring-4 focus:ring-gray-200 focus:border-gray-700'
+                  }`}
+                />
+                <span className="absolute right-4 top-1/2 transform -translate-y-1/2 text-gray-400 font-medium text-sm">
+                  sec
+                </span>
+              </div>
+            )}
+          </div>
+        )}
 
         <button
           type="submit"

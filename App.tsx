@@ -246,7 +246,7 @@ function App() {
     }
   };
 
-  const addRecord = (distance: Distance, timeSeconds: number) => {
+  const addRecord = (distance: Distance, timeSeconds: number, tenMeterTime?: number) => {
     if (!firebaseInitialized || !db) {
       alert('Firebase 未初始化，無法新增紀錄。請檢查環境變數設定。');
       return;
@@ -258,6 +258,10 @@ function App() {
     }
     
     try {
+      const dateStr = getLocalDateStr();
+      const timestamp = Date.now();
+      
+      // 創建主要距離的紀錄
       const newRecordRef = push(ref(db, 'records'));
       if (!newRecordRef.key) {
         console.error('無法新增紀錄：Firebase 未返回 key');
@@ -269,15 +273,35 @@ function App() {
         racerId: selectedRacerId,
         distance,
         timeSeconds,
-        timestamp: Date.now(),
-        dateStr: getLocalDateStr() // Use local date
+        timestamp,
+        dateStr
       };
       
-      // Push to Firebase
+      // 儲存主要紀錄
       set(newRecordRef, newRecord).catch((error) => {
         console.error('新增紀錄失敗：', error);
         alert('新增紀錄失敗，請檢查網路連線或 Firebase 設定');
       });
+      
+      // 如果有提供 10 米時間，同時創建 10 米紀錄
+      if (tenMeterTime !== undefined && tenMeterTime > 0) {
+        const tenMeterRecordRef = push(ref(db, 'records'));
+        if (tenMeterRecordRef.key) {
+          const tenMeterRecord: Record = {
+            id: tenMeterRecordRef.key,
+            racerId: selectedRacerId,
+            distance: 10,
+            timeSeconds: tenMeterTime,
+            timestamp: timestamp + 1, // 稍微延後時間戳，確保排序正確
+            dateStr
+          };
+          
+          set(tenMeterRecordRef, tenMeterRecord).catch((error) => {
+            console.error('新增 10 米紀錄失敗：', error);
+            // 不顯示錯誤提示，因為主要紀錄已經成功
+          });
+        }
+      }
       
       // Optional: Visual feedback or vibration
       if (navigator.vibrate) navigator.vibrate(50);
