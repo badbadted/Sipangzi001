@@ -55,19 +55,9 @@
   - `newName`: 新選手名稱（string）
   - `selectedColor`: 選中的顏色（string）
 
-#### services/geminiService.ts
-- **常數：**
-  - `env`: 環境變數對象
-  - `apiKey`: Gemini API 金鑰
-  - `genAI`: GoogleGenerativeAI 實例（可能為 null）
-
-- **函數：**
-  - `analyzePerformance()`: 分析選手表現
-
 #### firebase.ts
 - **常數：**
-  - `env`: 環境變數對象
-  - `firebaseConfig`: Firebase 配置對象
+  - `firebaseConfig`: Firebase 配置對象（使用 import.meta.env 讀取環境變數）
   - `app`: Firebase 應用實例（未導出，但被 `db` 使用）
   - `db`: 導出的資料庫實例
 
@@ -82,25 +72,13 @@
 - `VITE_FIREBASE_APP_ID`
 - `VITE_FIREBASE_DATABASE_URL`
 
-#### Gemini AI 環境變數（services/geminiService.ts）
-- `VITE_GEMINI_API_KEY`（優先）
-- `GEMINI_API_KEY`（備用）
-- `process.env.GEMINI_API_KEY`（備用，用於 Node.js 環境）
-
 #### Vite 配置環境變數（vite.config.ts）
-- `GEMINI_API_KEY`（從 .env 文件讀取）
-- 定義為 `process.env.API_KEY`（未使用，可能為向後兼容保留）
-- 定義為 `process.env.GEMINI_API_KEY`
+- 無額外環境變數配置
 
 ### ⚠️ 注意事項
 
-1. **未使用的配置：**
-   - `vite.config.ts` 中的 `process.env.API_KEY` 定義了但未在代碼中使用
-   - 可能是為了向後兼容而保留
-
-2. **環境變數命名：**
+1. **環境變數命名：**
    - Firebase 變數統一使用 `VITE_` 前綴
-   - Gemini API 變數支援多種命名方式以增加兼容性
 
 3. **類型安全：**
    - 多處使用 `@ts-ignore` 來繞過類型檢查
@@ -119,9 +97,9 @@
 
 ### 📊 統計
 
-- **總變數數：** ~50+
-- **State 變數：** 10
-- **環境變數：** 8
+- **總變數數：** ~45+
+- **State 變數：** 8
+- **環境變數：** 7
 - **函數：** 15+
 - **已修復問題：** 1（移除未使用的 `fullDate`）
 

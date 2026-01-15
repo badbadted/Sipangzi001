@@ -1,8 +1,7 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
-import { Activity, Sparkles, Loader2 } from 'lucide-react';
+import { Activity } from 'lucide-react';
 import { Record, Racer, Distance } from '../types';
-import { analyzePerformance } from '../services/geminiService';
 
 interface AnalysisProps {
   records: Record[];
@@ -12,8 +11,6 @@ interface AnalysisProps {
 const Analysis: React.FC<AnalysisProps> = ({ records, racers }) => {
   const [selectedRacerId, setSelectedRacerId] = useState<string>(racers[0]?.id || '');
   const [selectedDistance, setSelectedDistance] = useState<Distance>(30);
-  const [analysisResult, setAnalysisResult] = useState<string | null>(null);
-  const [isAnalyzing, setIsAnalyzing] = useState(false);
 
   // If no initial selection but racers exist, set default
   useEffect(() => {
@@ -34,22 +31,6 @@ const Analysis: React.FC<AnalysisProps> = ({ records, racers }) => {
       }));
   }, [selectedRacerId, selectedDistance, records]);
 
-  const handleAnalyze = async () => {
-    const racer = racers.find(r => r.id === selectedRacerId);
-    if (!racer) return;
-
-    setIsAnalyzing(true);
-    setAnalysisResult(null);
-    try {
-      const result = await analyzePerformance(racer, records);
-      setAnalysisResult(result);
-    } catch (error) {
-      setAnalysisResult("分析發生錯誤，請稍後再試。");
-    } finally {
-      setIsAnalyzing(false);
-    }
-  };
-
   if (racers.length === 0) {
     return <div className="text-center py-10 text-gray-400">請先新增選手與紀錄以查看分析。</div>;
   }
@@ -69,7 +50,6 @@ const Analysis: React.FC<AnalysisProps> = ({ records, racers }) => {
                         key={r.id}
                         onClick={() => {
                             setSelectedRacerId(r.id);
-                            setAnalysisResult(null);
                         }}
                         className={`px-4 py-2 rounded-full text-sm font-medium whitespace-nowrap transition-colors ${
                             selectedRacerId === r.id 
@@ -147,45 +127,6 @@ const Analysis: React.FC<AnalysisProps> = ({ records, racers }) => {
                 <Activity className="mb-2 opacity-50" />
                 <span className="text-sm">資料不足，無法顯示圖表</span>
             </div>
-        )}
-      </div>
-
-      {/* AI Analysis Section */}
-      <div className="bg-gradient-to-br from-indigo-50 to-purple-50 p-5 rounded-2xl border border-indigo-100">
-        <div className="flex items-center justify-between mb-3">
-          <h3 className="font-bold text-indigo-900 flex items-center gap-2">
-            <Sparkles size={18} className="text-amber-500" />
-            AI 教練評語
-          </h3>
-        </div>
-        
-        {analysisResult ? (
-          <div className="bg-white/80 p-4 rounded-xl text-sm text-gray-700 leading-relaxed shadow-sm whitespace-pre-line animate-fade-in">
-            {analysisResult}
-          </div>
-        ) : (
-          <div className="text-center">
-             <button
-              onClick={handleAnalyze}
-              disabled={isAnalyzing || chartData.length === 0}
-              className="bg-white text-indigo-600 px-6 py-3 rounded-xl font-bold text-sm shadow-sm border border-indigo-100 hover:bg-indigo-50 hover:shadow-md transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 mx-auto"
-            >
-              {isAnalyzing ? (
-                <>
-                  <Loader2 size={16} className="animate-spin" />
-                  分析中...
-                </>
-              ) : (
-                <>
-                  <Sparkles size={16} />
-                  {chartData.length === 0 ? '請先累積紀錄' : '取得教練分析'}
-                </>
-              )}
-            </button>
-            <p className="text-xs text-indigo-300 mt-2">
-              Gemini AI 將分析近期表現並給予建議
-            </p>
-          </div>
         )}
       </div>
     </div>
