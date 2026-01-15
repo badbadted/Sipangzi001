@@ -172,6 +172,37 @@ function App() {
     }
   };
 
+  const updateRacer = (id: string, name: string, color: string, avatar?: string) => {
+    if (!firebaseInitialized || !db) {
+      alert('Firebase 未初始化，無法更新選手。請檢查環境變數設定。');
+      return;
+    }
+    
+    try {
+      const existingRacer = racers.find(r => r.id === id);
+      if (!existingRacer) {
+        console.error('找不到要更新的選手');
+        return;
+      }
+
+      const racerRef = ref(db, `racers/${id}`);
+      const updatedRacer: Racer = {
+        ...existingRacer,
+        name,
+        avatarColor: color,
+        ...(avatar !== undefined ? { avatar } : { avatar: existingRacer.avatar })
+      };
+      
+      set(racerRef, updatedRacer).catch((error) => {
+        console.error('更新選手失敗：', error);
+        alert('更新選手失敗，請檢查網路連線或 Firebase 設定');
+      });
+    } catch (error) {
+      console.error('更新選手時發生錯誤：', error);
+      alert('更新選手時發生錯誤，請稍後再試');
+    }
+  };
+
   const deleteRacer = (id: string) => {
     if (!firebaseInitialized || !db) {
       alert('Firebase 未初始化，無法刪除選手。請檢查環境變數設定。');
@@ -342,6 +373,7 @@ function App() {
               selectedRacerId={selectedRacerId} 
               onSelectRacer={setSelectedRacerId}
               onAddRacer={addRacer}
+              onUpdateRacer={updateRacer}
               onDeleteRacer={deleteRacer}
               theme={theme}
             />

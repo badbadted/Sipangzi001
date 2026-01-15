@@ -1,5 +1,5 @@
 import React, { useState, useRef } from 'react';
-import { Plus, User, Trash2, Upload, X } from 'lucide-react';
+import { Plus, User, Trash2, Upload, X, Edit2, Save } from 'lucide-react';
 import { Racer, AVATAR_COLORS } from '../types';
 import { Theme, themes } from '../themes';
 import { getTextColor, getTextSecondaryColor, getPrimaryColor, getCardBgColor, getBorderColor } from '../themeUtils';
@@ -9,6 +9,7 @@ interface RacerManagementProps {
   selectedRacerId: string | null;
   onSelectRacer: (id: string) => void;
   onAddRacer: (name: string, color: string, avatar?: string) => void;
+  onUpdateRacer: (id: string, name: string, color: string, avatar?: string) => void;
   onDeleteRacer: (id: string) => void;
   theme: Theme;
 }
@@ -18,17 +19,68 @@ const RacerManagement: React.FC<RacerManagementProps> = ({
   selectedRacerId, 
   onSelectRacer, 
   onAddRacer,
+  onUpdateRacer,
   onDeleteRacer,
   theme
 }) => {
   const currentTheme = themes[theme] || themes['light'];
   const [isAdding, setIsAdding] = useState(false);
+  const [editingId, setEditingId] = useState<string | null>(null);
   const [newName, setNewName] = useState('');
   const [selectedColor, setSelectedColor] = useState(AVATAR_COLORS[0]);
   const [avatarPreview, setAvatarPreview] = useState<string | null>(null);
+  const [isCompressing, setIsCompressing] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const editFileInputRef = useRef<HTMLInputElement>(null);
 
-  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+  // 圖片壓縮函數
+  const compressImage = (file: File, maxWidth: number = 800, maxHeight: number = 800, quality: number = 0.8): Promise<string> => {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        const img = new Image();
+        img.onload = () => {
+          // 計算新尺寸，保持寬高比
+          let width = img.width;
+          let height = img.height;
+          
+          if (width > maxWidth || height > maxHeight) {
+            if (width > height) {
+              height = (height * maxWidth) / width;
+              width = maxWidth;
+            } else {
+              width = (width * maxHeight) / height;
+              height = maxHeight;
+            }
+          }
+
+          // 創建 Canvas 進行壓縮
+          const canvas = document.createElement('canvas');
+          canvas.width = width;
+          canvas.height = height;
+          const ctx = canvas.getContext('2d');
+          
+          if (!ctx) {
+            reject(new Error('無法創建 Canvas 上下文'));
+            return;
+          }
+
+          // 繪製圖片
+          ctx.drawImage(img, 0, 0, width, height);
+          
+          // 轉換為 base64
+          const compressedDataUrl = canvas.toDataURL('image/jpeg', quality);
+          resolve(compressedDataUrl);
+        };
+        img.onerror = () => reject(new Error('圖片載入失敗'));
+        img.src = e.target?.result as string;
+      };
+      reader.onerror = () => reject(new Error('文件讀取失敗'));
+      reader.readAsDataURL(file);
+    });
+  };
+
+  const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
       // 檢查文件類型
@@ -37,17 +89,25 @@ const RacerManagement: React.FC<RacerManagementProps> = ({
         return;
       }
       
-      // 檢查文件大小（限制 2MB）
-      if (file.size > 2 * 1024 * 1024) {
-        alert('圖片大小不能超過 2MB');
-        return;
+      // 移除大小限制，改為自動壓縮
+      setIsCompressing(true);
+      
+      try {
+        // 壓縮圖片（最大 800x800，品質 0.8）
+        const compressedImage = await compressImage(file, 800, 800, 0.8);
+        setAvatarPreview(compressedImage);
+      } catch (error) {
+        console.error('圖片壓縮失敗：', error);
+        alert('圖片處理失敗，請重試');
+        // 如果壓縮失敗，嘗試直接使用原圖
+        const reader = new FileReader();
+        reader.onloadend = () => {
+          setAvatarPreview(reader.result as string);
+        };
+        reader.readAsDataURL(file);
+      } finally {
+        setIsCompressing(false);
       }
-
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        setAvatarPreview(reader.result as string);
-      };
-      reader.readAsDataURL(file);
     }
   };
 
@@ -68,6 +128,62 @@ const RacerManagement: React.FC<RacerManagementProps> = ({
       setSelectedColor(AVATAR_COLORS[Math.floor(Math.random() * AVATAR_COLORS.length)]);
       if (fileInputRef.current) {
         fileInputRef.current.value = '';
+      }
+    }
+  };
+
+  const handleStartEdit = (racer: Racer) => {
+    setEditingId(racer.id);
+    setNewName(racer.name);
+    setSelectedColor(racer.avatarColor);
+    setAvatarPreview(racer.avatar || null);
+    setIsAdding(false); // 關閉新增表單
+  };
+
+  const handleCancelEdit = () => {
+    setEditingId(null);
+    setNewName('');
+    setSelectedColor(AVATAR_COLORS[0]);
+    setAvatarPreview(null);
+    if (editFileInputRef.current) {
+      editFileInputRef.current.value = '';
+    }
+  };
+
+  const handleSaveEdit = () => {
+    if (editingId && newName.trim()) {
+      onUpdateRacer(editingId, newName.trim(), selectedColor, avatarPreview || undefined);
+      handleCancelEdit();
+    }
+  };
+
+  const handleEditFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      // 檢查文件類型
+      if (!file.type.startsWith('image/')) {
+        alert('請選擇圖片檔案');
+        return;
+      }
+      
+      // 移除大小限制，改為自動壓縮
+      setIsCompressing(true);
+      
+      try {
+        // 壓縮圖片（最大 800x800，品質 0.8）
+        const compressedImage = await compressImage(file, 800, 800, 0.8);
+        setAvatarPreview(compressedImage);
+      } catch (error) {
+        console.error('圖片壓縮失敗：', error);
+        alert('圖片處理失敗，請重試');
+        // 如果壓縮失敗，嘗試直接使用原圖
+        const reader = new FileReader();
+        reader.onloadend = () => {
+          setAvatarPreview(reader.result as string);
+        };
+        reader.readAsDataURL(file);
+      } finally {
+        setIsCompressing(false);
       }
     }
   };
@@ -166,8 +282,13 @@ const RacerManagement: React.FC<RacerManagementProps> = ({
                   <span className="text-sm font-medium">選擇圖片</span>
                 </label>
                 <p className={`text-xs mt-1 ${getTextSecondaryColor(theme)}`}>
-                  支援 JPG、PNG，最大 2MB
+                  支援 JPG、PNG，會自動壓縮
                 </p>
+                {isCompressing && (
+                  <p className={`text-xs mt-1 ${getPrimaryColor(theme)} animate-pulse`}>
+                    正在壓縮圖片...
+                  </p>
+                )}
               </div>
             </div>
           </div>
@@ -207,6 +328,151 @@ const RacerManagement: React.FC<RacerManagementProps> = ({
           </button>
         </div>
       )}
+
+      {/* 編輯表單 */}
+      {editingId && (() => {
+        const racer = racers.find(r => r.id === editingId);
+        if (!racer) return null;
+        
+        return (
+          <div className={`${currentTheme.styles.cardBg} p-6 rounded-xl shadow-lg border ${currentTheme.colors.border} animate-fade-in-down space-y-4`}>
+            <div className="flex items-center justify-between mb-4">
+              <h3 className={`text-lg font-bold ${getTextColor(theme)}`}>
+                編輯選手
+              </h3>
+              <button
+                onClick={handleCancelEdit}
+                className={`text-sm ${getTextSecondaryColor(theme)} hover:${getTextColor(theme)}`}
+              >
+                <X size={20} />
+              </button>
+            </div>
+
+            <div>
+              <label className={`block text-sm font-bold mb-2 ${getTextColor(theme)}`}>
+                選手姓名 / 暱稱
+              </label>
+              <input
+                type="text"
+                value={newName}
+                onChange={(e) => setNewName(e.target.value)}
+                placeholder="例如: 小飛俠"
+                className={`w-full p-3 border rounded-xl focus:ring-2 focus:outline-none ${
+                  theme === 'cute'
+                    ? 'border-gray-300 focus:ring-pink-500 text-gray-800 bg-white'
+                    : theme === 'tech'
+                    ? 'border-slate-600 focus:ring-cyan-500 text-slate-200 bg-slate-700'
+                    : theme === 'dark'
+                    ? 'border-gray-600 focus:ring-gray-500 text-gray-200 bg-gray-800'
+                    : 'border-gray-300 focus:ring-gray-500 text-gray-900 bg-white'
+                }`}
+              />
+            </div>
+
+            <div>
+              <label className={`block text-sm font-bold mb-2 ${getTextColor(theme)}`}>
+                大頭貼（選填）
+              </label>
+              <div className="space-y-3">
+                {avatarPreview ? (
+                  <div className="relative inline-block">
+                    <img 
+                      src={avatarPreview} 
+                      alt="預覽" 
+                      className="w-24 h-24 rounded-full object-cover border-2 border-gray-300"
+                    />
+                    <button
+                      onClick={() => {
+                        setAvatarPreview(null);
+                        if (editFileInputRef.current) {
+                          editFileInputRef.current.value = '';
+                        }
+                      }}
+                      className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full p-1 hover:bg-red-600 transition-colors"
+                      title="移除圖片"
+                    >
+                      <X size={14} />
+                    </button>
+                  </div>
+                ) : (
+                  <div className={`w-24 h-24 rounded-full flex items-center justify-center border-2 border-dashed ${
+                    theme === 'cute' ? 'border-pink-300 bg-pink-50' :
+                    theme === 'tech' ? 'border-cyan-500/30 bg-slate-800' :
+                    theme === 'dark' ? 'border-gray-600 bg-gray-800' :
+                    'border-gray-300 bg-gray-50'
+                  }`}>
+                    <User size={32} className={getTextSecondaryColor(theme)} />
+                  </div>
+                )}
+                <div>
+                  <input
+                    ref={editFileInputRef}
+                    type="file"
+                    accept="image/*"
+                    onChange={handleEditFileSelect}
+                    className="hidden"
+                    id="edit-avatar-upload"
+                  />
+                  <label
+                    htmlFor="edit-avatar-upload"
+                    className={`inline-flex items-center gap-2 px-4 py-2 rounded-lg cursor-pointer transition-colors ${
+                      theme === 'cute' ? 'bg-pink-100 text-pink-700 hover:bg-pink-200' :
+                      theme === 'tech' ? 'bg-cyan-500/20 text-cyan-400 hover:bg-cyan-500/30' :
+                      theme === 'dark' ? 'bg-gray-700 text-gray-200 hover:bg-gray-600' :
+                      'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                    }`}
+                  >
+                    <Upload size={16} />
+                    <span className="text-sm font-medium">{avatarPreview ? '更換圖片' : '選擇圖片'}</span>
+                  </label>
+                  <p className={`text-xs mt-1 ${getTextSecondaryColor(theme)}`}>
+                    支援 JPG、PNG，會自動壓縮
+                  </p>
+                  {isCompressing && (
+                    <p className={`text-xs mt-1 ${getPrimaryColor(theme)} animate-pulse`}>
+                      正在壓縮圖片...
+                    </p>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            <div>
+              <label className={`block text-sm font-bold mb-2 ${getTextColor(theme)}`}>
+                選擇代表色
+              </label>
+              <div className="flex flex-wrap gap-2">
+                {AVATAR_COLORS.map(color => (
+                  <button
+                    key={color}
+                    onClick={() => setSelectedColor(color)}
+                    className={`w-10 h-10 rounded-full ${color} transition-transform ${
+                      selectedColor === color 
+                        ? theme === 'cute'
+                          ? 'ring-2 ring-offset-2 ring-pink-600 scale-110'
+                          : theme === 'tech'
+                          ? 'ring-2 ring-offset-2 ring-cyan-500 scale-110'
+                          : theme === 'dark'
+                          ? 'ring-2 ring-offset-2 ring-gray-400 scale-110'
+                          : 'ring-2 ring-offset-2 ring-gray-700 scale-110'
+                        : 'hover:scale-105'
+                    }`}
+                  />
+                ))}
+              </div>
+            </div>
+
+            <button 
+              onClick={handleSaveEdit}
+              disabled={!newName.trim()}
+              className={`w-full ${currentTheme.styles.buttonPrimary} text-white px-4 py-3 rounded-xl font-bold disabled:opacity-50 transition-colors flex items-center justify-center gap-2 shadow-sm`}
+            >
+              <Save size={18} />
+              儲存變更
+            </button>
+          </div>
+        );
+      })()}
 
       {racers.length === 0 ? (
         <div className={`text-center py-12 rounded-xl border-2 border-dashed ${
@@ -273,6 +539,21 @@ const RacerManagement: React.FC<RacerManagementProps> = ({
                   }`}
                 >
                   {selectedRacerId === racer.id ? '已選中' : '選擇'}
+                </button>
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleStartEdit(racer);
+                  }}
+                  className={`px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
+                    theme === 'cute' ? 'bg-blue-50 text-blue-600 hover:bg-blue-100' :
+                    theme === 'tech' ? 'bg-blue-500/20 text-blue-400 hover:bg-blue-500/30' :
+                    theme === 'dark' ? 'bg-blue-900/30 text-blue-400 hover:bg-blue-900/50' :
+                    'bg-blue-50 text-blue-600 hover:bg-blue-100'
+                  }`}
+                  title="編輯選手"
+                >
+                  <Edit2 size={16} />
                 </button>
                 <button
                   onClick={(e) => {
