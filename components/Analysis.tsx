@@ -35,6 +35,38 @@ const Analysis: React.FC<AnalysisProps> = ({ records, racers, theme }) => {
       }));
   }, [selectedRacerId, selectedDistance, records]);
 
+  // 月份統計數據
+  const monthlyData = useMemo(() => {
+    if (!selectedRacerId) return [];
+    
+    const filteredRecords = records.filter(
+      r => r.racerId === selectedRacerId && r.distance === selectedDistance
+    );
+    
+    // 按月份分組
+    const monthlyGroups: { [key: string]: number[] } = {};
+    filteredRecords.forEach(r => {
+      // 從 dateStr (YYYY-MM-DD) 提取年月 (YYYY-MM)
+      const monthKey = r.dateStr.slice(0, 7); // YYYY-MM
+      if (!monthlyGroups[monthKey]) {
+        monthlyGroups[monthKey] = [];
+      }
+      monthlyGroups[monthKey].push(r.timeSeconds);
+    });
+    
+    // 計算每個月的平均秒數
+    return Object.entries(monthlyGroups)
+      .map(([month, times]) => ({
+        month,
+        avgTime: times.reduce((sum, t) => sum + t, 0) / times.length,
+        count: times.length,
+        bestTime: Math.min(...times),
+        // 格式化月份顯示為 "YYYY年MM月" 或 "MM月"
+        monthLabel: `${month.slice(5)}月` // MM月
+      }))
+      .sort((a, b) => a.month.localeCompare(b.month)); // 按月份排序
+  }, [selectedRacerId, selectedDistance, records]);
+
   if (racers.length === 0) {
     return (
       <div className={`text-center py-10 ${getTextSecondaryColor(theme)}`}>
@@ -134,36 +166,139 @@ const Analysis: React.FC<AnalysisProps> = ({ records, racers, theme }) => {
           </div>
       </div>
 
-      {/* Chart */}
-      <div className={`${currentTheme.styles.cardBg} p-4 rounded-xl shadow-sm border ${currentTheme.colors.border} h-64`}>
-        {chartData.length > 1 ? (
-            <ResponsiveContainer width="100%" height="100%">
-            <LineChart data={chartData}>
-                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f0f0f0" />
-                <XAxis dataKey="date" tick={{fontSize: 10}} stroke="#9ca3af" />
-                <YAxis domain={['auto', 'auto']} tick={{fontSize: 10}} stroke="#9ca3af" />
-                <Tooltip 
-                    contentStyle={{borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)'}}
-                    labelStyle={{color: '#6b7280', fontSize: '12px'}}
-                />
-                <Line 
+      {/* Daily Chart */}
+      <div className={`${currentTheme.styles.cardBg} p-4 rounded-xl shadow-sm border ${currentTheme.colors.border}`}>
+        <h3 className={`text-sm font-bold mb-4 ${getTextColor(theme)}`}>
+          每日秒數變化
+        </h3>
+        <div className="h-64">
+          {chartData.length > 1 ? (
+              <ResponsiveContainer width="100%" height="100%">
+              <LineChart data={chartData}>
+                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f0f0f0" />
+                  <XAxis dataKey="date" tick={{fontSize: 10}} stroke="#9ca3af" />
+                  <YAxis domain={['auto', 'auto']} tick={{fontSize: 10}} stroke="#9ca3af" />
+                  <Tooltip 
+                      contentStyle={{borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)'}}
+                      labelStyle={{color: '#6b7280', fontSize: '12px'}}
+                  />
+                  <Line 
+                      type="monotone" 
+                      dataKey="time" 
+                      stroke="#4f46e5" 
+                      strokeWidth={3} 
+                      dot={{ fill: '#4f46e5', strokeWidth: 2 }} 
+                      activeDot={{ r: 6 }}
+                      animationDuration={1000}
+                  />
+              </LineChart>
+              </ResponsiveContainer>
+          ) : (
+              <div className={`h-full flex flex-col items-center justify-center ${getTextSecondaryColor(theme)}`}>
+                  <Activity className="mb-2 opacity-50" />
+                  <span className="text-sm">資料不足，無法顯示圖表</span>
+              </div>
+          )}
+        </div>
+      </div>
+
+      {/* Monthly Statistics */}
+      {monthlyData.length > 0 && (
+        <div className={`${currentTheme.styles.cardBg} p-4 rounded-xl shadow-sm border ${currentTheme.colors.border}`}>
+          <h3 className={`text-sm font-bold mb-4 ${getTextColor(theme)}`}>
+            月份秒數變化
+          </h3>
+          <div className="h-64">
+            {monthlyData.length > 1 ? (
+              <ResponsiveContainer width="100%" height="100%">
+                <LineChart data={monthlyData}>
+                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f0f0f0" />
+                  <XAxis 
+                    dataKey="monthLabel" 
+                    tick={{fontSize: 10}} 
+                    stroke="#9ca3af" 
+                  />
+                  <YAxis 
+                    domain={['auto', 'auto']} 
+                    tick={{fontSize: 10}} 
+                    stroke="#9ca3af"
+                    label={{ value: '秒數', angle: -90, position: 'insideLeft', fontSize: 10 }}
+                  />
+                  <Tooltip 
+                    contentStyle={{
+                      borderRadius: '8px', 
+                      border: 'none', 
+                      boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)',
+                      backgroundColor: currentTheme.styles.cardBg
+                    }}
+                    labelStyle={{color: getTextColor(theme), fontSize: '12px', fontWeight: 'bold'}}
+                    formatter={(value: number) => [`${value.toFixed(2)} 秒`, '平均秒數']}
+                    labelFormatter={(label) => `月份: ${label}`}
+                  />
+                  <Line 
                     type="monotone" 
-                    dataKey="time" 
-                    stroke="#4f46e5" 
+                    dataKey="avgTime" 
+                    stroke={
+                      theme === 'cute' ? '#ec4899' :
+                      theme === 'tech' ? '#06b6d4' :
+                      theme === 'dark' ? '#9ca3af' :
+                      '#4f46e5'
+                    }
                     strokeWidth={3} 
-                    dot={{ fill: '#4f46e5', strokeWidth: 2 }} 
+                    dot={{ 
+                      fill: theme === 'cute' ? '#ec4899' :
+                            theme === 'tech' ? '#06b6d4' :
+                            theme === 'dark' ? '#9ca3af' :
+                            '#4f46e5',
+                      strokeWidth: 2 
+                    }} 
                     activeDot={{ r: 6 }}
                     animationDuration={1000}
-                />
-            </LineChart>
-            </ResponsiveContainer>
-        ) : (
-            <div className={`h-full flex flex-col items-center justify-center ${getTextSecondaryColor(theme)}`}>
+                    name="平均秒數"
+                  />
+                </LineChart>
+              </ResponsiveContainer>
+            ) : (
+              <div className={`h-full flex flex-col items-center justify-center ${getTextSecondaryColor(theme)}`}>
                 <Activity className="mb-2 opacity-50" />
-                <span className="text-sm">資料不足，無法顯示圖表</span>
+                <span className="text-sm">需要至少兩個月的資料才能顯示趨勢</span>
+              </div>
+            )}
+          </div>
+          
+          {/* Monthly Stats Cards */}
+          {monthlyData.length > 0 && (
+            <div className="mt-4 grid grid-cols-2 gap-2">
+              {monthlyData.slice(-3).reverse().map((month, index) => (
+                <div 
+                  key={month.month}
+                  className={`p-3 rounded-lg border ${
+                    theme === 'cute' ? 'bg-pink-50 border-pink-200' :
+                    theme === 'tech' ? 'bg-slate-800/50 border-slate-700' :
+                    theme === 'dark' ? 'bg-gray-800/50 border-gray-700' :
+                    'bg-gray-50 border-gray-200'
+                  }`}
+                >
+                  <p className={`text-xs font-medium mb-1 ${getTextSecondaryColor(theme)}`}>
+                    {month.monthLabel}
+                  </p>
+                  <p className={`text-lg font-bold ${
+                    theme === 'cute' ? 'text-pink-600' :
+                    theme === 'tech' ? 'text-cyan-400' :
+                    theme === 'dark' ? 'text-gray-300' :
+                    'text-gray-700'
+                  }`}>
+                    {month.avgTime.toFixed(2)}<span className={`text-xs font-normal ml-1 ${getTextSecondaryColor(theme)}`}>s</span>
+                  </p>
+                  <p className={`text-xs mt-1 ${getTextSecondaryColor(theme)}`}>
+                    {month.count} 筆紀錄 · 最佳 {month.bestTime.toFixed(2)}s
+                  </p>
+                </div>
+              ))}
             </div>
-        )}
-      </div>
+          )}
+        </div>
+      )}
     </div>
   );
 };

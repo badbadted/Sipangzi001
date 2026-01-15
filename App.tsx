@@ -157,7 +157,7 @@ function App() {
         id: newRacerRef.key,
         name,
         avatarColor: color,
-        avatar,
+        ...(avatar && { avatar }), // 只有當 avatar 存在時才包含
         createdAt: Date.now()
       };
       // Save to Firebase
@@ -186,12 +186,20 @@ function App() {
       }
 
       const racerRef = ref(db, `racers/${id}`);
+      // 構建更新物件，確保不包含 undefined
       const updatedRacer: Racer = {
-        ...existingRacer,
+        id: existingRacer.id,
         name,
         avatarColor: color,
-        ...(avatar !== undefined ? { avatar } : { avatar: existingRacer.avatar })
+        createdAt: existingRacer.createdAt,
+        // 只有當 avatar 不是 undefined 時才包含
+        ...(avatar !== undefined && { avatar: avatar || null })
       };
+      
+      set(racerRef, updatedRacer).catch((error) => {
+        console.error('更新選手失敗：', error);
+        alert('更新選手失敗，請檢查網路連線或 Firebase 設定');
+      });
       
       set(racerRef, updatedRacer).catch((error) => {
         console.error('更新選手失敗：', error);

@@ -120,6 +120,8 @@ const RacerManagement: React.FC<RacerManagementProps> = ({
 
   const handleAdd = () => {
     if (newName.trim()) {
+      // 如果 avatarPreview 是 null，傳遞 undefined（不包含該屬性）
+      // 如果 avatarPreview 有值，傳遞該值
       onAddRacer(newName.trim(), selectedColor, avatarPreview || undefined);
       setNewName('');
       setAvatarPreview(null);
@@ -152,6 +154,8 @@ const RacerManagement: React.FC<RacerManagementProps> = ({
 
   const handleSaveEdit = () => {
     if (editingId && newName.trim()) {
+      // 如果 avatarPreview 是 null，傳遞 undefined（不包含該屬性）
+      // 如果 avatarPreview 有值，傳遞該值
       onUpdateRacer(editingId, newName.trim(), selectedColor, avatarPreview || undefined);
       handleCancelEdit();
     }
