@@ -12,7 +12,7 @@ interface HistoryLogProps {
 }
 
 const HistoryLog: React.FC<HistoryLogProps> = ({ records, racers, onDeleteRecord, theme }) => {
-  const currentTheme = themes[theme];
+  const currentTheme = themes[theme] || themes['light'];
   const [deleteId, setDeleteId] = useState<string | null>(null);
   
   const groupedRecords = useMemo(() => {

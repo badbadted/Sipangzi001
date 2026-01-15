@@ -23,7 +23,7 @@ const ThemeSwitcher: React.FC<ThemeSwitcherProps> = ({ currentTheme, onThemeChan
         title="切換主題"
       >
         <Palette size={18} />
-        <span className="text-sm font-medium hidden sm:inline">{themes[currentTheme].icon}</span>
+        <span className="text-sm font-medium hidden sm:inline">{(themes[currentTheme] || themes['light']).icon}</span>
       </button>
 
       {isOpen && (
@@ -47,14 +47,14 @@ const ThemeSwitcher: React.FC<ThemeSwitcherProps> = ({ currentTheme, onThemeChan
                 }}
                 className={`w-full px-4 py-3 text-left flex items-center gap-3 transition-colors ${
                   currentTheme === themeKey
-                    ? themes[themeKey].styles.buttonPrimary + ' text-white'
+                    ? (themes[themeKey] || themes['light']).styles.buttonPrimary + ' text-white'
                     : currentTheme === 'cute' || currentTheme === 'light'
                       ? 'hover:bg-gray-50 text-gray-700'
                       : 'hover:bg-slate-700 text-slate-300'
                 }`}
               >
-                <span className="text-xl">{themes[themeKey].icon}</span>
-                <span className="font-medium">{themes[themeKey].name}</span>
+                <span className="text-xl">{(themes[themeKey] || themes['light']).icon}</span>
+                <span className="font-medium">{(themes[themeKey] || themes['light']).name}</span>
                 {currentTheme === themeKey && (
                   <span className="ml-auto text-sm">✓</span>
                 )}

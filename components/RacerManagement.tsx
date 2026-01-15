@@ -21,7 +21,7 @@ const RacerManagement: React.FC<RacerManagementProps> = ({
   onDeleteRacer,
   theme
 }) => {
-  const currentTheme = themes[theme];
+  const currentTheme = themes[theme] || themes['light'];
   const [isAdding, setIsAdding] = useState(false);
   const [newName, setNewName] = useState('');
   const [selectedColor, setSelectedColor] = useState(AVATAR_COLORS[0]);

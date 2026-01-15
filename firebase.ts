@@ -24,6 +24,7 @@ const firebaseConfig = {
 // Initialize Firebase
 let app;
 let db;
+let firebaseInitialized = false;
 
 try {
   // 檢查必要的環境變數
@@ -41,14 +42,19 @@ try {
   if (missingVars.length > 0) {
     console.error('缺少必要的 Firebase 環境變數：', missingVars);
     console.warn('請檢查 .env.local 文件是否正確設定');
+    console.warn('應用程式將在離線模式下運行');
+  } else {
+    // 只有當所有必要的環境變數都存在時才初始化
+    app = initializeApp(firebaseConfig);
+    db = getDatabase(app);
+    firebaseInitialized = true;
+    console.log('Firebase 初始化成功');
   }
-  
-  app = initializeApp(firebaseConfig);
-  db = getDatabase(app);
 } catch (error) {
   console.error('Firebase 初始化失敗：', error);
-  throw error;
+  console.warn('應用程式將在離線模式下運行');
+  // 不拋出錯誤，讓應用程式可以繼續運行
 }
 
-// Export database instance
-export { db };
+// Export database instance (可能為 undefined)
+export { db, firebaseInitialized };

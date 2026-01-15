@@ -12,7 +12,7 @@ interface AnalysisProps {
 }
 
 const Analysis: React.FC<AnalysisProps> = ({ records, racers, theme }) => {
-  const currentTheme = themes[theme];
+  const currentTheme = themes[theme] || themes['light'];
   const [selectedRacerId, setSelectedRacerId] = useState<string>(racers[0]?.id || '');
   const [selectedDistance, setSelectedDistance] = useState<Distance>(30);
 

@@ -13,7 +13,7 @@ interface RecordFormProps {
 const DISTANCES: Distance[] = [10, 30, 50];
 
 const RecordForm: React.FC<RecordFormProps> = ({ racerId, onAddRecord, theme }) => {
-  const currentTheme = themes[theme];
+  const currentTheme = themes[theme] || themes['light'];
   const [distance, setDistance] = useState<Distance>(30);
   const [timeStr, setTimeStr] = useState('');
 

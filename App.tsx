@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Trophy, Timer, History, BarChart2, Users } from 'lucide-react';
-import { db } from './firebase';
+import { db, firebaseInitialized } from './firebase';
 // @ts-ignore
 import { ref, onValue, push, set, remove } from 'firebase/database';
 import RacerList from './components/RacerList';
@@ -27,9 +27,20 @@ function App() {
   const [selectedRacerId, setSelectedRacerId] = useState<string | null>(null);
   const [theme, setTheme] = useState<Theme>(() => {
     // 從 localStorage 讀取主題，預設為白色系
-    const savedTheme = localStorage.getItem('app-theme') as Theme;
-    const validThemes: Theme[] = ['cute', 'tech', 'dark', 'light'];
-    return savedTheme && validThemes.includes(savedTheme) ? savedTheme : 'light';
+    try {
+      const savedTheme = localStorage.getItem('app-theme') as Theme;
+      const validThemes: Theme[] = ['cute', 'tech', 'dark', 'light'];
+      const themeToUse = savedTheme && validThemes.includes(savedTheme) ? savedTheme : 'light';
+      // 確保主題配置存在
+      if (!themes[themeToUse]) {
+        console.warn(`主題 "${themeToUse}" 不存在，使用預設主題 "light"`);
+        return 'light';
+      }
+      return themeToUse;
+    } catch (error) {
+      console.error('讀取主題時發生錯誤：', error);
+      return 'light';
+    }
   });
 
   // 保存主題到 localStorage
@@ -38,10 +49,16 @@ function App() {
     document.documentElement.setAttribute('data-theme', theme);
   }, [theme]);
 
-  const currentTheme = themes[theme];
+  // 確保主題配置存在，如果不存在則使用預設主題
+  const currentTheme = themes[theme] || themes['light'];
 
   // Sync Racers from Firebase
   useEffect(() => {
+    if (!firebaseInitialized || !db) {
+      console.warn('Firebase 未初始化，無法同步選手數據');
+      return;
+    }
+    
     try {
       const racersRef = ref(db, 'racers');
       const unsubscribe = onValue(racersRef, (snapshot: any) => {
@@ -73,6 +90,11 @@ function App() {
 
   // Sync Records from Firebase
   useEffect(() => {
+    if (!firebaseInitialized || !db) {
+      console.warn('Firebase 未初始化，無法同步紀錄數據');
+      return;
+    }
+    
     try {
       const recordsRef = ref(db, 'records');
       const unsubscribe = onValue(recordsRef, (snapshot: any) => {
@@ -118,40 +140,79 @@ function App() {
     }
   }, [racers, selectedRacerId]);
 
-  const addRacer = (name: string, color: string) => {
-    const newRacerRef = push(ref(db, 'racers'));
-    const newRacer: Racer = {
-      id: newRacerRef.key as string,
-      name,
-      avatarColor: color,
-      createdAt: Date.now()
-    };
-    // Save to Firebase
-    set(newRacerRef, newRacer);
-    setSelectedRacerId(newRacer.id);
+  const addRacer = (name: string, color: string, avatar?: string) => {
+    if (!firebaseInitialized || !db) {
+      alert('Firebase 未初始化，無法新增選手。請檢查環境變數設定。');
+      return;
+    }
+    
+    try {
+      const newRacerRef = push(ref(db, 'racers'));
+      if (!newRacerRef.key) {
+        console.error('無法新增選手：Firebase 未返回 key');
+        return;
+      }
+      
+      const newRacer: Racer = {
+        id: newRacerRef.key,
+        name,
+        avatarColor: color,
+        avatar,
+        createdAt: Date.now()
+      };
+      // Save to Firebase
+      set(newRacerRef, newRacer).catch((error) => {
+        console.error('新增選手失敗：', error);
+        alert('新增選手失敗，請檢查網路連線或 Firebase 設定');
+      });
+      setSelectedRacerId(newRacer.id);
+    } catch (error) {
+      console.error('新增選手時發生錯誤：', error);
+      alert('新增選手時發生錯誤，請稍後再試');
+    }
   };
 
   const deleteRacer = (id: string) => {
+    if (!firebaseInitialized || !db) {
+      alert('Firebase 未初始化，無法刪除選手。請檢查環境變數設定。');
+      return;
+    }
+    
     if (confirm('確定要刪除此選手嗎？相關紀錄也會一併刪除。')) {
-      // Remove racer
-      remove(ref(db, `racers/${id}`));
-      
-      // Remove associated records
-      // Note: In a production app with huge data, this should be done via a cloud function.
-      // For this scale, client-side iteration is fine.
-      records.forEach(r => {
-        if (r.racerId === id) {
-          remove(ref(db, `records/${r.id}`));
-        }
-      });
+      try {
+        // Remove racer
+        remove(ref(db, `racers/${id}`)).catch((error) => {
+          console.error('刪除選手失敗：', error);
+          alert('刪除選手失敗，請檢查網路連線或 Firebase 設定');
+        });
+        
+        // Remove associated records
+        // Note: In a production app with huge data, this should be done via a cloud function.
+        // For this scale, client-side iteration is fine.
+        records.forEach(r => {
+          if (r.racerId === id) {
+            remove(ref(db, `records/${r.id}`)).catch((error) => {
+              console.error('刪除紀錄失敗：', error);
+            });
+          }
+        });
 
-      if (selectedRacerId === id) {
-          setSelectedRacerId(null);
+        if (selectedRacerId === id) {
+            setSelectedRacerId(null);
+        }
+      } catch (error) {
+        console.error('刪除選手時發生錯誤：', error);
+        alert('刪除選手時發生錯誤，請稍後再試');
       }
     }
   };
 
   const addRecord = (distance: Distance, timeSeconds: number) => {
+    if (!firebaseInitialized || !db) {
+      alert('Firebase 未初始化，無法新增紀錄。請檢查環境變數設定。');
+      return;
+    }
+    
     if (!selectedRacerId) {
       console.warn('無法新增紀錄：未選擇選手');
       return;
@@ -188,7 +249,20 @@ function App() {
   };
 
   const deleteRecord = (id: string) => {
-    remove(ref(db, `records/${id}`));
+    if (!firebaseInitialized || !db) {
+      alert('Firebase 未初始化，無法刪除紀錄。請檢查環境變數設定。');
+      return;
+    }
+    
+    try {
+      remove(ref(db, `records/${id}`)).catch((error) => {
+        console.error('刪除紀錄失敗：', error);
+        alert('刪除紀錄失敗，請檢查網路連線或 Firebase 設定');
+      });
+    } catch (error) {
+      console.error('刪除紀錄時發生錯誤：', error);
+      alert('刪除紀錄時發生錯誤，請稍後再試');
+    }
   };
 
   const renderContent = () => {
@@ -295,6 +369,35 @@ function App() {
         );
     }
   };
+
+  // 如果 Firebase 未初始化，顯示警告訊息
+  if (!firebaseInitialized) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-50 p-6">
+        <div className="bg-white rounded-xl shadow-lg p-8 max-w-md w-full border border-yellow-200">
+          <h2 className="text-xl font-bold text-yellow-600 mb-4">⚠️ Firebase 未初始化</h2>
+          <p className="text-gray-700 mb-4">
+            請檢查環境變數設定。應用程式需要正確的 Firebase 配置才能正常運行。
+          </p>
+          <div className="bg-gray-100 p-4 rounded-lg mb-4">
+            <p className="text-sm text-gray-600 mb-2">請確認以下環境變數已設定：</p>
+            <ul className="text-xs text-gray-600 list-disc list-inside space-y-1">
+              <li>VITE_FIREBASE_API_KEY</li>
+              <li>VITE_FIREBASE_AUTH_DOMAIN</li>
+              <li>VITE_FIREBASE_PROJECT_ID</li>
+              <li>VITE_FIREBASE_DATABASE_URL</li>
+            </ul>
+          </div>
+          <button
+            onClick={() => window.location.reload()}
+            className="w-full bg-yellow-500 text-white py-2 px-4 rounded-lg font-bold hover:bg-yellow-600 transition-colors"
+          >
+            重新整理頁面
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div 
