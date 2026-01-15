@@ -1,15 +1,18 @@
 import React, { useState, useEffect } from 'react';
 import { Timer, Save } from 'lucide-react';
 import { Distance } from '../types';
+import { Theme, themes } from '../themes';
 
 interface RecordFormProps {
   racerId: string | null;
   onAddRecord: (distance: Distance, time: number) => void;
+  theme: Theme;
 }
 
 const DISTANCES: Distance[] = [10, 30, 50];
 
-const RecordForm: React.FC<RecordFormProps> = ({ racerId, onAddRecord }) => {
+const RecordForm: React.FC<RecordFormProps> = ({ racerId, onAddRecord, theme }) => {
+  const currentTheme = themes[theme];
   const [distance, setDistance] = useState<Distance>(30);
   const [timeStr, setTimeStr] = useState('');
 
@@ -66,9 +69,11 @@ const RecordForm: React.FC<RecordFormProps> = ({ racerId, onAddRecord }) => {
   if (!racerId) return null;
 
   return (
-    <div className="bg-white rounded-2xl shadow-lg p-6 mb-8 border border-gray-100">
-      <h2 className="text-xl font-bold text-gray-800 mb-6 flex items-center gap-2">
-        <Timer className="text-indigo-500" />
+    <div className={`${currentTheme.styles.cardBg} rounded-2xl shadow-lg p-6 mb-8 border ${currentTheme.colors.border}`}>
+      <h2 className={`text-xl font-bold mb-6 flex items-center gap-2 ${
+        theme === 'cute' ? 'text-gray-800' : 'text-slate-200'
+      }`}>
+        <Timer className={theme === 'cute' ? 'text-pink-500' : 'text-cyan-400'} />
         輸入成績
       </h2>
       
@@ -83,8 +88,12 @@ const RecordForm: React.FC<RecordFormProps> = ({ racerId, onAddRecord }) => {
                 onClick={() => setDistance(d)}
                 className={`py-3 px-2 rounded-xl text-lg font-bold transition-all duration-200 ${
                   distance === d 
-                    ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-200 transform scale-105' 
-                    : 'bg-gray-100 text-gray-400 hover:bg-gray-200'
+                    ? theme === 'cute'
+                      ? 'bg-pink-500 text-white shadow-lg shadow-pink-200 transform scale-105'
+                      : 'bg-cyan-500 text-white shadow-lg shadow-cyan-500/30 transform scale-105'
+                    : theme === 'cute'
+                      ? 'bg-gray-100 text-gray-400 hover:bg-gray-200'
+                      : 'bg-slate-700 text-slate-400 hover:bg-slate-600'
                 }`}
               >
                 {d} 米
@@ -105,7 +114,11 @@ const RecordForm: React.FC<RecordFormProps> = ({ racerId, onAddRecord }) => {
               value={timeStr}
               onChange={handleTimeChange}
               placeholder="0.00"
-              className="w-full text-4xl font-mono font-bold text-gray-800 p-4 bg-gray-50 rounded-xl border border-gray-200 focus:ring-4 focus:ring-indigo-100 focus:border-indigo-500 outline-none text-center"
+              className={`w-full text-4xl font-mono font-bold p-4 rounded-xl border outline-none text-center ${
+                theme === 'cute'
+                  ? 'text-gray-800 bg-gray-50 border-gray-200 focus:ring-4 focus:ring-pink-100 focus:border-pink-500'
+                  : 'text-slate-200 bg-slate-800 border-slate-600 focus:ring-4 focus:ring-cyan-500/20 focus:border-cyan-500'
+              }`}
               required
             />
             <span className="absolute right-6 top-1/2 transform -translate-y-1/2 text-gray-400 font-medium">
@@ -120,7 +133,11 @@ const RecordForm: React.FC<RecordFormProps> = ({ racerId, onAddRecord }) => {
         <button
           type="submit"
           disabled={!timeStr || parseFloat(timeStr) === 0}
-          className="w-full bg-gradient-to-r from-indigo-600 to-purple-600 text-white py-4 rounded-xl text-lg font-bold shadow-lg shadow-indigo-200 hover:shadow-xl hover:from-indigo-700 hover:to-purple-700 active:transform active:scale-95 transition-all flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+          className={`w-full text-white py-4 rounded-xl text-lg font-bold shadow-lg active:transform active:scale-95 transition-all flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed ${
+            theme === 'cute'
+              ? 'bg-gradient-to-r from-pink-500 to-rose-500 shadow-pink-200 hover:shadow-xl hover:from-pink-600 hover:to-rose-600'
+              : 'bg-gradient-to-r from-cyan-500 to-blue-600 shadow-cyan-500/30 hover:shadow-xl hover:from-cyan-600 hover:to-blue-700'
+          }`}
         >
           <Save size={20} />
           儲存紀錄

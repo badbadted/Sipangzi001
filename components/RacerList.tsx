@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Plus, User, Trash2 } from 'lucide-react';
 import { Racer, AVATAR_COLORS } from '../types';
+import { Theme, themes } from '../themes';
 
 interface RacerListProps {
   racers: Racer[];
@@ -8,6 +9,7 @@ interface RacerListProps {
   onSelectRacer: (id: string) => void;
   onAddRacer: (name: string, color: string) => void;
   onDeleteRacer: (id: string) => void;
+  theme: Theme;
 }
 
 const RacerList: React.FC<RacerListProps> = ({ 
@@ -15,8 +17,10 @@ const RacerList: React.FC<RacerListProps> = ({
   selectedRacerId, 
   onSelectRacer, 
   onAddRacer,
-  onDeleteRacer
+  onDeleteRacer,
+  theme
 }) => {
+  const currentTheme = themes[theme];
   const [isAdding, setIsAdding] = useState(false);
   const [newName, setNewName] = useState('');
   const [selectedColor, setSelectedColor] = useState(AVATAR_COLORS[0]);
@@ -34,42 +38,68 @@ const RacerList: React.FC<RacerListProps> = ({
   return (
     <div className="mb-6">
       <div className="flex items-center justify-between mb-4">
-        <h2 className="text-lg font-bold text-gray-800">選擇選手</h2>
+        <h2 className={`text-lg font-bold ${
+          theme === 'cute' ? 'text-gray-800' : 'text-slate-200'
+        }`}>
+          選擇選手
+        </h2>
         <button 
           onClick={() => setIsAdding(!isAdding)}
-          className="text-sm text-indigo-600 font-medium flex items-center gap-1 active:opacity-70"
+          className={`text-sm font-medium flex items-center gap-1 active:opacity-70 ${
+            theme === 'cute' 
+              ? 'text-pink-600 hover:text-pink-700' 
+              : 'text-cyan-400 hover:text-cyan-300'
+          }`}
         >
           {isAdding ? '取消' : <><Plus size={16} /> 新增選手</>}
         </button>
       </div>
 
       {isAdding && (
-        <div className="bg-white p-4 rounded-xl shadow-sm mb-4 border border-indigo-100 animate-fade-in-down">
-          <label className="block text-sm font-bold text-gray-700 mb-2">選手姓名 / 暱稱</label>
+        <div className={`${currentTheme.styles.cardBg} p-4 rounded-xl shadow-sm mb-4 border ${currentTheme.colors.border} animate-fade-in-down`}>
+          <label className={`block text-sm font-bold mb-2 ${
+            theme === 'cute' ? 'text-gray-700' : 'text-slate-300'
+          }`}>
+            選手姓名 / 暱稱
+          </label>
           <div className="flex flex-col gap-3 mb-4">
             <input
               type="text"
               value={newName}
               onChange={(e) => setNewName(e.target.value)}
               placeholder="例如: 小飛俠"
-              className="w-full p-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:outline-none text-gray-800"
+              className={`w-full p-3 border rounded-xl focus:ring-2 focus:outline-none ${
+                theme === 'cute'
+                  ? 'border-gray-300 focus:ring-pink-500 text-gray-800 bg-white'
+                  : 'border-slate-600 focus:ring-cyan-500 text-slate-200 bg-slate-700'
+              }`}
             />
             <button 
               onClick={handleAdd}
               disabled={!newName.trim()}
-              className="w-full bg-indigo-600 text-white px-4 py-3 rounded-xl font-bold disabled:opacity-50 hover:bg-indigo-700 transition-colors flex items-center justify-center gap-2 shadow-sm shadow-indigo-200"
+              className={`w-full ${currentTheme.styles.buttonPrimary} text-white px-4 py-3 rounded-xl font-bold disabled:opacity-50 transition-colors flex items-center justify-center gap-2 shadow-sm`}
             >
               <Plus size={18} />
               建立選手
             </button>
           </div>
-          <label className="block text-sm font-bold text-gray-700 mb-2">選擇代表色</label>
+          <label className={`block text-sm font-bold mb-2 ${
+            theme === 'cute' ? 'text-gray-700' : 'text-slate-300'
+          }`}>
+            選擇代表色
+          </label>
           <div className="flex flex-wrap gap-2">
             {AVATAR_COLORS.map(color => (
               <button
                 key={color}
                 onClick={() => setSelectedColor(color)}
-                className={`w-8 h-8 rounded-full ${color} ${selectedColor === color ? 'ring-2 ring-offset-2 ring-indigo-600' : ''}`}
+                className={`w-8 h-8 rounded-full ${color} ${
+                  selectedColor === color 
+                    ? theme === 'cute'
+                      ? 'ring-2 ring-offset-2 ring-pink-600'
+                      : 'ring-2 ring-offset-2 ring-cyan-500'
+                    : ''
+                }`}
               />
             ))}
           </div>
@@ -77,8 +107,14 @@ const RacerList: React.FC<RacerListProps> = ({
       )}
 
       {racers.length === 0 ? (
-        <div className="text-center py-8 bg-gray-50 rounded-xl border-2 border-dashed border-gray-200">
-          <p className="text-gray-500">還沒有選手，請先新增！</p>
+        <div className={`text-center py-8 rounded-xl border-2 border-dashed ${
+          theme === 'cute'
+            ? 'bg-pink-50 border-pink-200'
+            : 'bg-slate-800 border-slate-700'
+        }`}>
+          <p className={theme === 'cute' ? 'text-gray-500' : 'text-slate-400'}>
+            還沒有選手，請先新增！
+          </p>
         </div>
       ) : (
         <div className="flex overflow-x-auto gap-4 pb-4 no-scrollbar items-center">
@@ -94,11 +130,19 @@ const RacerList: React.FC<RacerListProps> = ({
                 }`}
               >
                 <div className={`w-16 h-16 rounded-full flex items-center justify-center text-white text-xl font-bold shadow-md ${racer.avatarColor} ${
-                  selectedRacerId === racer.id ? 'ring-4 ring-indigo-200' : ''
+                  selectedRacerId === racer.id 
+                    ? theme === 'cute'
+                      ? 'ring-4 ring-pink-200'
+                      : 'ring-4 ring-cyan-500/30'
+                    : ''
                 }`}>
                   {racer.name[0]}
                 </div>
-                <span className={`text-sm font-medium ${selectedRacerId === racer.id ? 'text-indigo-900' : 'text-gray-600'}`}>
+                <span className={`text-sm font-medium ${
+                  selectedRacerId === racer.id 
+                    ? theme === 'cute' ? 'text-pink-700' : 'text-cyan-300'
+                    : theme === 'cute' ? 'text-gray-600' : 'text-slate-400'
+                }`}>
                   {racer.name}
                 </span>
               </button>

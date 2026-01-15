@@ -7,7 +7,9 @@ import RacerList from './components/RacerList';
 import RecordForm from './components/RecordForm';
 import HistoryLog from './components/HistoryLog';
 import Analysis from './components/Analysis';
+import ThemeSwitcher from './components/ThemeSwitcher';
 import { Racer, Record, Distance } from './types';
+import { Theme, themes } from './themes';
 
 // Helper to get local date string YYYY-MM-DD
 const getLocalDateStr = () => {
@@ -22,6 +24,19 @@ function App() {
   const [racers, setRacers] = useState<Racer[]>([]);
   const [records, setRecords] = useState<Record[]>([]);
   const [selectedRacerId, setSelectedRacerId] = useState<string | null>(null);
+  const [theme, setTheme] = useState<Theme>(() => {
+    // 從 localStorage 讀取主題，預設為可愛動物風
+    const savedTheme = localStorage.getItem('app-theme') as Theme;
+    return savedTheme && (savedTheme === 'cute' || savedTheme === 'tech') ? savedTheme : 'cute';
+  });
+
+  // 保存主題到 localStorage
+  useEffect(() => {
+    localStorage.setItem('app-theme', theme);
+    document.documentElement.setAttribute('data-theme', theme);
+  }, [theme]);
+
+  const currentTheme = themes[theme];
 
   // Sync Racers from Firebase
   useEffect(() => {
@@ -138,17 +153,26 @@ function App() {
               onSelectRacer={setSelectedRacerId}
               onAddRacer={addRacer}
               onDeleteRacer={deleteRacer}
+              theme={theme}
             />
             {racers.length > 0 && selectedRacerId ? (
-              <RecordForm racerId={selectedRacerId} onAddRecord={addRecord} />
+              <RecordForm racerId={selectedRacerId} onAddRecord={addRecord} theme={theme} />
             ) : null}
             
             <div className="mt-8">
               <div className="flex items-center justify-between mb-4">
-                <h3 className="font-bold text-gray-600">今日最新紀錄</h3>
+                <h3 className={`font-bold ${
+                  theme === 'cute' ? 'text-gray-700' : 'text-slate-300'
+                }`}>
+                  今日最新紀錄
+                </h3>
                 <button 
                   onClick={() => setActiveTab('history')}
-                  className="text-xs text-indigo-600 font-medium hover:underline"
+                  className={`text-xs font-medium hover:underline ${
+                    theme === 'cute' 
+                      ? 'text-pink-600 hover:text-pink-700' 
+                      : 'text-cyan-400 hover:text-cyan-300'
+                  }`}
                 >
                   查看全部
                 </button>
@@ -164,38 +188,60 @@ function App() {
       case 'history':
         return (
           <div className="animate-fade-in">
-            <h2 className="text-xl font-bold text-gray-800 mb-6 flex items-center gap-2">
-              <History className="text-indigo-500" />
+            <h2 className={`text-xl font-bold mb-6 flex items-center gap-2 ${
+              theme === 'cute' ? 'text-gray-800' : 'text-slate-200'
+            }`}>
+              <History className={theme === 'cute' ? 'text-pink-500' : 'text-cyan-400'} />
               歷史紀錄
             </h2>
-            <HistoryLog racers={racers} records={records} onDeleteRecord={deleteRecord} />
+            <HistoryLog racers={racers} records={records} onDeleteRecord={deleteRecord} theme={theme} />
           </div>
         );
       case 'analysis':
         return (
           <div className="animate-fade-in">
-            <h2 className="text-xl font-bold text-gray-800 mb-6 flex items-center gap-2">
-              <BarChart2 className="text-indigo-500" />
+            <h2 className={`text-xl font-bold mb-6 flex items-center gap-2 ${
+              theme === 'cute' ? 'text-gray-800' : 'text-slate-200'
+            }`}>
+              <BarChart2 className={theme === 'cute' ? 'text-pink-500' : 'text-cyan-400'} />
               數據分析
             </h2>
-            <Analysis racers={racers} records={records} />
+            <Analysis racers={racers} records={records} theme={theme} />
           </div>
         );
     }
   };
 
   return (
-    <div className="min-h-screen pb-24 max-w-md mx-auto bg-gray-50 shadow-2xl overflow-hidden relative">
+    <div 
+      data-theme={theme}
+      className={`min-h-screen pb-24 max-w-md mx-auto shadow-2xl overflow-hidden relative transition-colors duration-300 ${
+        theme === 'cute' 
+          ? 'bg-rose-50' 
+          : 'bg-slate-900'
+      }`}
+    >
       {/* Header */}
-      <header className="bg-white pt-6 pb-4 px-6 sticky top-0 z-20 shadow-sm border-b border-gray-100">
-        <div className="flex items-center gap-3">
-          <div className="w-10 h-10 bg-indigo-600 rounded-xl flex items-center justify-center text-white shadow-lg shadow-indigo-200">
-            <Trophy size={20} />
+      <header className={`${currentTheme.styles.headerBg} pt-6 pb-4 px-6 sticky top-0 z-20 shadow-lg`}>
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className={`w-10 h-10 ${currentTheme.styles.headerIcon} rounded-xl flex items-center justify-center text-white shadow-lg`}>
+              <Trophy size={20} />
+            </div>
+            <div>
+              <h1 className={`text-lg font-bold tracking-tight ${
+                theme === 'cute' ? 'text-white' : 'text-white'
+              }`}>
+                滑步車測速紀錄
+              </h1>
+              <p className={`text-xs font-medium ${
+                theme === 'cute' ? 'text-pink-100' : 'text-cyan-100'
+              }`}>
+                Speedy Striders Tracker
+              </p>
+            </div>
           </div>
-          <div>
-            <h1 className="text-lg font-bold text-gray-900 tracking-tight">滑步車測速紀錄</h1>
-            <p className="text-xs text-gray-500 font-medium">Speedy Striders Tracker</p>
-          </div>
+          <ThemeSwitcher currentTheme={theme} onThemeChange={setTheme} />
         </div>
       </header>
 
@@ -205,10 +251,18 @@ function App() {
       </main>
 
       {/* Bottom Navigation */}
-      <nav className="fixed bottom-0 w-full max-w-md bg-white border-t border-gray-100 px-6 py-3 flex justify-between items-center z-30 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)]">
+      <nav className={`fixed bottom-0 w-full max-w-md px-6 py-3 flex justify-between items-center z-30 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.1)] ${
+        theme === 'cute' 
+          ? 'bg-white border-t border-pink-100' 
+          : 'bg-slate-800 border-t border-slate-700'
+      }`}>
         <button 
           onClick={() => setActiveTab('record')}
-          className={`flex flex-col items-center gap-1 transition-colors ${activeTab === 'record' ? 'text-indigo-600' : 'text-gray-400 hover:text-gray-600'}`}
+          className={`flex flex-col items-center gap-1 transition-colors ${
+            activeTab === 'record' 
+              ? currentTheme.styles.navActive 
+              : currentTheme.styles.navInactive
+          }`}
         >
           <Timer size={24} strokeWidth={activeTab === 'record' ? 2.5 : 2} />
           <span className="text-[10px] font-bold">測速</span>
@@ -216,7 +270,11 @@ function App() {
         
         <button 
           onClick={() => setActiveTab('history')}
-          className={`flex flex-col items-center gap-1 transition-colors ${activeTab === 'history' ? 'text-indigo-600' : 'text-gray-400 hover:text-gray-600'}`}
+          className={`flex flex-col items-center gap-1 transition-colors ${
+            activeTab === 'history' 
+              ? currentTheme.styles.navActive 
+              : currentTheme.styles.navInactive
+          }`}
         >
           <History size={24} strokeWidth={activeTab === 'history' ? 2.5 : 2} />
           <span className="text-[10px] font-bold">紀錄</span>
@@ -224,7 +282,11 @@ function App() {
         
         <button 
           onClick={() => setActiveTab('analysis')}
-          className={`flex flex-col items-center gap-1 transition-colors ${activeTab === 'analysis' ? 'text-indigo-600' : 'text-gray-400 hover:text-gray-600'}`}
+          className={`flex flex-col items-center gap-1 transition-colors ${
+            activeTab === 'analysis' 
+              ? currentTheme.styles.navActive 
+              : currentTheme.styles.navInactive
+          }`}
         >
           <BarChart2 size={24} strokeWidth={activeTab === 'analysis' ? 2.5 : 2} />
           <span className="text-[10px] font-bold">分析</span>
