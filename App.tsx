@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Timer, Watch, Play, Pause, RotateCcw, Flag } from 'lucide-react';
 import { ref, push, onValue, set, remove } from "firebase/database";
-import { db } from "./firebase123.ts"; // 確保 firebase.ts 在同一個資料夾 
+import { db } from "./firebase"; // 確保 firebase.ts 在同一個資料夾 
 import { AppMode, Lap } from './types';
 
 const App: React.FC = () => {
