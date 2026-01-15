@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { Trophy, Timer, History, BarChart2 } from 'lucide-react';
 import { db } from './firebase';
+// @ts-ignore
+import { ref, onValue, push, set, remove } from 'firebase/database';
 import RacerList from './components/RacerList';
 import RecordForm from './components/RecordForm';
 import HistoryLog from './components/HistoryLog';
@@ -23,8 +25,8 @@ function App() {
 
   // Sync Racers from Firebase
   useEffect(() => {
-    const racersRef = db.ref('racers');
-    const handleValue = (snapshot: any) => {
+    const racersRef = ref(db, 'racers');
+    const unsubscribe = onValue(racersRef, (snapshot: any) => {
       const data = snapshot.val();
       if (data) {
         // Convert object to array
@@ -33,19 +35,15 @@ function App() {
       } else {
         setRacers([]);
       }
-    };
-    
-    racersRef.on('value', handleValue);
+    });
 
-    return () => {
-        racersRef.off('value', handleValue);
-    };
+    return () => unsubscribe();
   }, []);
 
   // Sync Records from Firebase
   useEffect(() => {
-    const recordsRef = db.ref('records');
-    const handleValue = (snapshot: any) => {
+    const recordsRef = ref(db, 'records');
+    const unsubscribe = onValue(recordsRef, (snapshot: any) => {
       const data = snapshot.val();
       if (data) {
         const recordList = Object.values(data) as Record[];
@@ -55,13 +53,9 @@ function App() {
       } else {
         setRecords([]);
       }
-    };
+    });
 
-    recordsRef.on('value', handleValue);
-
-    return () => {
-        recordsRef.off('value', handleValue);
-    };
+    return () => unsubscribe();
   }, []);
 
   // Set default racer selection logic
@@ -77,7 +71,7 @@ function App() {
   }, [racers, selectedRacerId]);
 
   const addRacer = (name: string, color: string) => {
-    const newRacerRef = db.ref('racers').push();
+    const newRacerRef = push(ref(db, 'racers'));
     const newRacer: Racer = {
       id: newRacerRef.key as string,
       name,
@@ -85,21 +79,21 @@ function App() {
       createdAt: Date.now()
     };
     // Save to Firebase
-    newRacerRef.set(newRacer);
+    set(newRacerRef, newRacer);
     setSelectedRacerId(newRacer.id);
   };
 
   const deleteRacer = (id: string) => {
     if (confirm('確定要刪除此選手嗎？相關紀錄也會一併刪除。')) {
       // Remove racer
-      db.ref(`racers/${id}`).remove();
+      remove(ref(db, `racers/${id}`));
       
       // Remove associated records
       // Note: In a production app with huge data, this should be done via a cloud function.
       // For this scale, client-side iteration is fine.
       records.forEach(r => {
         if (r.racerId === id) {
-          db.ref(`records/${r.id}`).remove();
+          remove(ref(db, `records/${r.id}`));
         }
       });
 
@@ -112,7 +106,7 @@ function App() {
   const addRecord = (distance: Distance, timeSeconds: number) => {
     if (!selectedRacerId) return;
     
-    const newRecordRef = db.ref('records').push();
+    const newRecordRef = push(ref(db, 'records'));
     const newRecord: Record = {
       id: newRecordRef.key as string,
       racerId: selectedRacerId,
@@ -123,14 +117,14 @@ function App() {
     };
     
     // Push to Firebase
-    newRecordRef.set(newRecord);
+    set(newRecordRef, newRecord);
     
     // Optional: Visual feedback or vibration
     if (navigator.vibrate) navigator.vibrate(50);
   };
 
   const deleteRecord = (id: string) => {
-    db.ref(`records/${id}`).remove();
+    remove(ref(db, `records/${id}`));
   };
 
   const renderContent = () => {

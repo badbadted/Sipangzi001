@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import { Activity, Sparkles, Loader2 } from 'lucide-react';
 import { Record, Racer, Distance } from '../types';
@@ -15,10 +15,12 @@ const Analysis: React.FC<AnalysisProps> = ({ records, racers }) => {
   const [analysisResult, setAnalysisResult] = useState<string | null>(null);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
 
-  // If no initial selection but racers exist
-  if (!selectedRacerId && racers.length > 0) {
-    setSelectedRacerId(racers[0].id);
-  }
+  // If no initial selection but racers exist, set default
+  useEffect(() => {
+    if (!selectedRacerId && racers.length > 0) {
+      setSelectedRacerId(racers[0].id);
+    }
+  }, [racers, selectedRacerId]);
 
   const chartData = useMemo(() => {
     if (!selectedRacerId) return [];
@@ -28,8 +30,7 @@ const Analysis: React.FC<AnalysisProps> = ({ records, racers }) => {
       .sort((a, b) => a.timestamp - b.timestamp)
       .map(r => ({
         date: r.dateStr.slice(5), // MM-DD
-        time: r.timeSeconds,
-        fullDate: r.dateStr
+        time: r.timeSeconds
       }));
   }, [selectedRacerId, selectedDistance, records]);
 
