@@ -1,14 +1,11 @@
 import { GoogleGenAI } from "@google/genai";
 import { Racer, Record } from "../types";
 
-const apiKey = process.env.API_KEY || '';
-const ai = new GoogleGenAI({ apiKey });
+// Initialize the Google GenAI client
+// Using process.env.API_KEY as mandated by guidelines
+const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
 
 export const analyzePerformance = async (racer: Racer, records: Record[]): Promise<string> => {
-  if (!apiKey) {
-    return "請先設定 API Key 才能使用 AI 分析功能。";
-  }
-
   // Filter last 20 records to keep context small and relevant
   const recentRecords = records
     .filter(r => r.racerId === racer.id)
@@ -46,6 +43,6 @@ export const analyzePerformance = async (racer: Racer, records: Record[]): Promi
     return response.text || "無法產生分析結果。";
   } catch (error) {
     console.error("Gemini API Error:", error);
-    return "AI 教練目前休息中，請稍後再試。（可能是 API Key 問題或連線錯誤）";
+    return "AI 教練目前休息中，請稍後再試。";
   }
 };
