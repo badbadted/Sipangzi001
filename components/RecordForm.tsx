@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Timer, Save } from 'lucide-react';
 import { Distance } from '../types';
 import { Theme, themes } from '../themes';
+import { getTextColor, getPrimaryColor } from '../themeUtils';
 
 interface RecordFormProps {
   racerId: string | null;
@@ -70,10 +71,8 @@ const RecordForm: React.FC<RecordFormProps> = ({ racerId, onAddRecord, theme }) 
 
   return (
     <div className={`${currentTheme.styles.cardBg} rounded-2xl shadow-lg p-6 mb-8 border ${currentTheme.colors.border}`}>
-      <h2 className={`text-xl font-bold mb-6 flex items-center gap-2 ${
-        theme === 'cute' ? 'text-gray-800' : 'text-slate-200'
-      }`}>
-        <Timer className={theme === 'cute' ? 'text-pink-500' : 'text-cyan-400'} />
+      <h2 className={`text-xl font-bold mb-6 flex items-center gap-2 ${getTextColor(theme)}`}>
+        <Timer className={getPrimaryColor(theme)} />
         輸入成績
       </h2>
       
@@ -88,12 +87,14 @@ const RecordForm: React.FC<RecordFormProps> = ({ racerId, onAddRecord, theme }) 
                 onClick={() => setDistance(d)}
                 className={`py-3 px-2 rounded-xl text-lg font-bold transition-all duration-200 ${
                   distance === d 
-                    ? theme === 'cute'
-                      ? 'bg-pink-500 text-white shadow-lg shadow-pink-200 transform scale-105'
-                      : 'bg-cyan-500 text-white shadow-lg shadow-cyan-500/30 transform scale-105'
-                    : theme === 'cute'
-                      ? 'bg-gray-100 text-gray-400 hover:bg-gray-200'
-                      : 'bg-slate-700 text-slate-400 hover:bg-slate-600'
+                    ? theme === 'cute' ? 'bg-pink-500 text-white shadow-lg shadow-pink-200 transform scale-105' :
+                      theme === 'tech' ? 'bg-cyan-500 text-white shadow-lg shadow-cyan-500/30 transform scale-105' :
+                      theme === 'dark' ? 'bg-gray-700 text-white shadow-lg shadow-gray-900/30 transform scale-105' :
+                      'bg-gray-700 text-white shadow-lg shadow-gray-300 transform scale-105'
+                    : theme === 'cute' ? 'bg-gray-100 text-gray-400 hover:bg-gray-200' :
+                      theme === 'tech' ? 'bg-slate-700 text-slate-400 hover:bg-slate-600' :
+                      theme === 'dark' ? 'bg-gray-700 text-gray-400 hover:bg-gray-600' :
+                      'bg-gray-100 text-gray-400 hover:bg-gray-200'
                 }`}
               >
                 {d} 米
@@ -115,9 +116,10 @@ const RecordForm: React.FC<RecordFormProps> = ({ racerId, onAddRecord, theme }) 
               onChange={handleTimeChange}
               placeholder="0.00"
               className={`w-full text-4xl font-mono font-bold p-4 rounded-xl border outline-none text-center ${
-                theme === 'cute'
-                  ? 'text-gray-800 bg-gray-50 border-gray-200 focus:ring-4 focus:ring-pink-100 focus:border-pink-500'
-                  : 'text-slate-200 bg-slate-800 border-slate-600 focus:ring-4 focus:ring-cyan-500/20 focus:border-cyan-500'
+                theme === 'cute' ? 'text-gray-800 bg-gray-50 border-gray-200 focus:ring-4 focus:ring-pink-100 focus:border-pink-500' :
+                theme === 'tech' ? 'text-slate-200 bg-slate-800 border-slate-600 focus:ring-4 focus:ring-cyan-500/20 focus:border-cyan-500' :
+                theme === 'dark' ? 'text-gray-200 bg-gray-800 border-gray-600 focus:ring-4 focus:ring-gray-500/20 focus:border-gray-500' :
+                'text-gray-900 bg-gray-50 border-gray-300 focus:ring-4 focus:ring-gray-200 focus:border-gray-700'
               }`}
               required
             />
@@ -134,9 +136,10 @@ const RecordForm: React.FC<RecordFormProps> = ({ racerId, onAddRecord, theme }) 
           type="submit"
           disabled={!timeStr || parseFloat(timeStr) === 0}
           className={`w-full text-white py-4 rounded-xl text-lg font-bold shadow-lg active:transform active:scale-95 transition-all flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed ${
-            theme === 'cute'
-              ? 'bg-gradient-to-r from-pink-500 to-rose-500 shadow-pink-200 hover:shadow-xl hover:from-pink-600 hover:to-rose-600'
-              : 'bg-gradient-to-r from-cyan-500 to-blue-600 shadow-cyan-500/30 hover:shadow-xl hover:from-cyan-600 hover:to-blue-700'
+            theme === 'cute' ? 'bg-gradient-to-r from-pink-500 to-rose-500 shadow-pink-200 hover:shadow-xl hover:from-pink-600 hover:to-rose-600' :
+            theme === 'tech' ? 'bg-gradient-to-r from-cyan-500 to-blue-600 shadow-cyan-500/30 hover:shadow-xl hover:from-cyan-600 hover:to-blue-700' :
+            theme === 'dark' ? 'bg-gradient-to-r from-gray-700 to-gray-800 shadow-gray-900/30 hover:shadow-xl hover:from-gray-600 hover:to-gray-700' :
+            'bg-gradient-to-r from-gray-700 to-gray-800 shadow-gray-300 hover:shadow-xl hover:from-gray-800 hover:to-gray-900'
           }`}
         >
           <Save size={20} />

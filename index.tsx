@@ -1,10 +1,12 @@
 import React from 'react';
 import ReactDOM from 'react-dom/client';
 import App from './App';
+import ErrorBoundary from './components/ErrorBoundary';
 
 // 初始化主題（在 App 渲染前設置）
 const savedTheme = localStorage.getItem('app-theme');
-const initialTheme = (savedTheme === 'cute' || savedTheme === 'tech') ? savedTheme : 'cute';
+const validThemes = ['cute', 'tech', 'dark', 'light'];
+const initialTheme = savedTheme && validThemes.includes(savedTheme) ? savedTheme : 'light';
 document.documentElement.setAttribute('data-theme', initialTheme);
 
 const rootElement = document.getElementById('root');
@@ -15,6 +17,8 @@ if (!rootElement) {
 const root = ReactDOM.createRoot(rootElement);
 root.render(
   <React.StrictMode>
-    <App />
+    <ErrorBoundary>
+      <App />
+    </ErrorBoundary>
   </React.StrictMode>
 );

@@ -1,4 +1,4 @@
-export type Theme = 'cute' | 'tech';
+export type Theme = 'cute' | 'tech' | 'dark' | 'light';
 
 export interface ThemeConfig {
   name: string;
@@ -78,6 +78,58 @@ export const themes: Record<Theme, ThemeConfig> = {
       cardBg: 'bg-slate-800',
       navActive: 'text-cyan-400',
       navInactive: 'text-slate-500 hover:text-cyan-400',
+    },
+  },
+  dark: {
+    name: '黑色系',
+    icon: '🌙',
+    colors: {
+      primary: 'gray-800',
+      primaryLight: 'gray-700',
+      primaryDark: 'black',
+      secondary: 'gray-600',
+      accent: 'gray-500',
+      background: 'gray-900',
+      surface: 'gray-800',
+      text: 'gray-100',
+      textSecondary: 'gray-400',
+      border: 'gray-700',
+      shadow: 'black',
+    },
+    styles: {
+      headerBg: 'bg-gradient-to-r from-gray-800 to-gray-900',
+      headerIcon: 'bg-gray-700',
+      buttonPrimary: 'bg-gray-700 hover:bg-gray-600',
+      buttonHover: 'hover:bg-gray-700',
+      cardBg: 'bg-gray-800',
+      navActive: 'text-gray-200',
+      navInactive: 'text-gray-500 hover:text-gray-300',
+    },
+  },
+  light: {
+    name: '白色系',
+    icon: '☀️',
+    colors: {
+      primary: 'gray-100',
+      primaryLight: 'white',
+      primaryDark: 'gray-200',
+      secondary: 'gray-300',
+      accent: 'gray-400',
+      background: 'white',
+      surface: 'gray-50',
+      text: 'gray-900',
+      textSecondary: 'gray-600',
+      border: 'gray-200',
+      shadow: 'gray-300',
+    },
+    styles: {
+      headerBg: 'bg-gradient-to-r from-gray-100 to-gray-200',
+      headerIcon: 'bg-gray-300',
+      buttonPrimary: 'bg-gray-700 hover:bg-gray-800',
+      buttonHover: 'hover:bg-gray-100',
+      cardBg: 'bg-white',
+      navActive: 'text-gray-900',
+      navInactive: 'text-gray-500 hover:text-gray-700',
     },
   },
 };

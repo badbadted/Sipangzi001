@@ -2,6 +2,7 @@ export interface Racer {
   id: string;
   name: string;
   avatarColor: string;
+  avatar?: string; // 大頭貼圖片 URL 或 base64
   createdAt: number;
 }
 

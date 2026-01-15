@@ -3,6 +3,7 @@ import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContai
 import { Activity } from 'lucide-react';
 import { Record, Racer, Distance } from '../types';
 import { Theme, themes } from '../themes';
+import { getTextColor, getTextSecondaryColor, getPrimaryColor, getCardBgColor, getBorderColor } from '../themeUtils';
 
 interface AnalysisProps {
   records: Record[];
@@ -36,9 +37,7 @@ const Analysis: React.FC<AnalysisProps> = ({ records, racers, theme }) => {
 
   if (racers.length === 0) {
     return (
-      <div className={`text-center py-10 ${
-        theme === 'cute' ? 'text-gray-400' : 'text-slate-500'
-      }`}>
+      <div className={`text-center py-10 ${getTextSecondaryColor(theme)}`}>
         請先新增選手與紀錄以查看分析。
       </div>
     );
@@ -52,9 +51,7 @@ const Analysis: React.FC<AnalysisProps> = ({ records, racers, theme }) => {
       {/* Controls */}
       <div className={`${currentTheme.styles.cardBg} p-4 rounded-xl shadow-sm border ${currentTheme.colors.border} space-y-4`}>
         <div>
-            <label className={`block text-xs font-bold uppercase tracking-wide mb-2 ${
-              theme === 'cute' ? 'text-gray-400' : 'text-slate-500'
-            }`}>
+            <label className={`block text-xs font-bold uppercase tracking-wide mb-2 ${getTextSecondaryColor(theme)}`}>
               選手
             </label>
             <div className="flex gap-2 overflow-x-auto no-scrollbar pb-1">
@@ -67,9 +64,10 @@ const Analysis: React.FC<AnalysisProps> = ({ records, racers, theme }) => {
                         className={`px-4 py-2 rounded-full text-sm font-medium whitespace-nowrap transition-colors ${
                             selectedRacerId === r.id 
                             ? `${r.avatarColor} text-white shadow-md` 
-                            : theme === 'cute'
-                              ? 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-                              : 'bg-slate-700 text-slate-400 hover:bg-slate-600'
+                            : theme === 'cute' ? 'bg-gray-100 text-gray-600 hover:bg-gray-200' :
+                              theme === 'tech' ? 'bg-slate-700 text-slate-400 hover:bg-slate-600' :
+                              theme === 'dark' ? 'bg-gray-700 text-gray-400 hover:bg-gray-600' :
+                              'bg-gray-100 text-gray-600 hover:bg-gray-200'
                         }`}
                     >
                         {r.name}
@@ -79,9 +77,7 @@ const Analysis: React.FC<AnalysisProps> = ({ records, racers, theme }) => {
         </div>
         
         <div>
-            <label className={`block text-xs font-bold uppercase tracking-wide mb-2 ${
-              theme === 'cute' ? 'text-gray-400' : 'text-slate-500'
-            }`}>
+            <label className={`block text-xs font-bold uppercase tracking-wide mb-2 ${getTextSecondaryColor(theme)}`}>
               距離
             </label>
             <div className="flex gap-2">
@@ -91,12 +87,14 @@ const Analysis: React.FC<AnalysisProps> = ({ records, racers, theme }) => {
                         onClick={() => setSelectedDistance(d as Distance)}
                         className={`flex-1 py-1.5 rounded-lg text-sm font-medium transition-colors ${
                             selectedDistance === d
-                            ? theme === 'cute'
-                              ? 'bg-pink-100 text-pink-700 border border-pink-200'
-                              : 'bg-cyan-500/20 text-cyan-300 border border-cyan-500/30'
-                            : theme === 'cute'
-                              ? 'bg-white border border-gray-200 text-gray-600'
-                              : 'bg-slate-700 border border-slate-600 text-slate-400'
+                            ? theme === 'cute' ? 'bg-pink-100 text-pink-700 border border-pink-200' :
+                              theme === 'tech' ? 'bg-cyan-500/20 text-cyan-300 border border-cyan-500/30' :
+                              theme === 'dark' ? 'bg-gray-600/30 text-gray-200 border border-gray-500/30' :
+                              'bg-gray-100 text-gray-700 border border-gray-300'
+                            : theme === 'cute' ? 'bg-white border border-gray-200 text-gray-600' :
+                              theme === 'tech' ? 'bg-slate-700 border border-slate-600 text-slate-400' :
+                              theme === 'dark' ? 'bg-gray-700 border border-gray-600 text-gray-400' :
+                              'bg-white border border-gray-200 text-gray-600'
                         }`}
                     >
                         {d}m
@@ -109,31 +107,29 @@ const Analysis: React.FC<AnalysisProps> = ({ records, racers, theme }) => {
       {/* Stats Cards */}
       <div className="grid grid-cols-2 gap-4">
           <div className={`${currentTheme.styles.cardBg} p-4 rounded-xl shadow-sm border ${currentTheme.colors.border}`}>
-              <p className={`text-xs mb-1 ${
-                theme === 'cute' ? 'text-gray-500' : 'text-slate-400'
-              }`}>
+              <p className={`text-xs mb-1 ${getTextSecondaryColor(theme)}`}>
                 最佳紀錄 (PB)
               </p>
               <p className={`text-2xl font-bold ${
-                theme === 'cute' ? 'text-pink-600' : 'text-cyan-400'
+                theme === 'cute' ? 'text-pink-600' :
+                theme === 'tech' ? 'text-cyan-400' :
+                theme === 'dark' ? 'text-gray-300' :
+                'text-gray-700'
               }`}>
-                  {bestTime > 0 ? bestTime.toFixed(2) : '--'} <span className={`text-sm font-normal ${
-                    theme === 'cute' ? 'text-gray-400' : 'text-slate-500'
-                  }`}>s</span>
+                  {bestTime > 0 ? bestTime.toFixed(2) : '--'} <span className={`text-sm font-normal ${getTextSecondaryColor(theme)}`}>s</span>
               </p>
           </div>
           <div className={`${currentTheme.styles.cardBg} p-4 rounded-xl shadow-sm border ${currentTheme.colors.border}`}>
-              <p className={`text-xs mb-1 ${
-                theme === 'cute' ? 'text-gray-500' : 'text-slate-400'
-              }`}>
+              <p className={`text-xs mb-1 ${getTextSecondaryColor(theme)}`}>
                 平均秒數
               </p>
               <p className={`text-2xl font-bold ${
-                theme === 'cute' ? 'text-rose-500' : 'text-blue-400'
+                theme === 'cute' ? 'text-rose-500' :
+                theme === 'tech' ? 'text-blue-400' :
+                theme === 'dark' ? 'text-gray-400' :
+                'text-gray-600'
               }`}>
-                  {avgTime > 0 ? avgTime.toFixed(2) : '--'} <span className={`text-sm font-normal ${
-                    theme === 'cute' ? 'text-gray-400' : 'text-slate-500'
-                  }`}>s</span>
+                  {avgTime > 0 ? avgTime.toFixed(2) : '--'} <span className={`text-sm font-normal ${getTextSecondaryColor(theme)}`}>s</span>
               </p>
           </div>
       </div>
@@ -162,9 +158,7 @@ const Analysis: React.FC<AnalysisProps> = ({ records, racers, theme }) => {
             </LineChart>
             </ResponsiveContainer>
         ) : (
-            <div className={`h-full flex flex-col items-center justify-center ${
-              theme === 'cute' ? 'text-gray-400' : 'text-slate-500'
-            }`}>
+            <div className={`h-full flex flex-col items-center justify-center ${getTextSecondaryColor(theme)}`}>
                 <Activity className="mb-2 opacity-50" />
                 <span className="text-sm">資料不足，無法顯示圖表</span>
             </div>
