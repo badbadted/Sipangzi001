@@ -3,6 +3,7 @@ import { Plus, User, Trash2 } from 'lucide-react';
 import { Racer, AVATAR_COLORS } from '../types';
 import { Theme, themes } from '../themes';
 import { getTextColor, getTextSecondaryColor, getPrimaryColor, getCardBgColor, getBorderColor, isDarkTheme } from '../themeUtils';
+import PasswordModal from './PasswordModal';
 
 interface RacerListProps {
   racers: Racer[];
@@ -13,6 +14,8 @@ interface RacerListProps {
   onNavigateToRacers?: () => void;
   theme: Theme;
 }
+
+const SUPER_PASSWORD = 'TED'; // 超級權限密碼
 
 const RacerList: React.FC<RacerListProps> = ({ 
   racers, 
@@ -27,6 +30,8 @@ const RacerList: React.FC<RacerListProps> = ({
   const [isAdding, setIsAdding] = useState(false);
   const [newName, setNewName] = useState('');
   const [selectedColor, setSelectedColor] = useState(AVATAR_COLORS[0]);
+  const [showPasswordModal, setShowPasswordModal] = useState(false);
+  const [pendingRacerId, setPendingRacerId] = useState<string | null>(null);
 
   const handleAdd = () => {
     if (newName.trim()) {
@@ -36,6 +41,42 @@ const RacerList: React.FC<RacerListProps> = ({
       // Pick a random color for next time
       setSelectedColor(AVATAR_COLORS[Math.floor(Math.random() * AVATAR_COLORS.length)]);
     }
+  };
+
+  const handleSelectRacer = (racerId: string) => {
+    const racer = racers.find(r => r.id === racerId);
+    if (!racer) return;
+    
+    // 檢查是否需要密碼
+    if (racer.requirePassword && racer.password) {
+      setPendingRacerId(racerId);
+      setShowPasswordModal(true);
+    } else {
+      onSelectRacer(racerId);
+    }
+  };
+
+  const handlePasswordVerify = (inputPassword: string): boolean => {
+    if (!pendingRacerId) return false;
+    
+    const racer = racers.find(r => r.id === pendingRacerId);
+    if (!racer) return false;
+    
+    // 檢查超級權限密碼
+    if (inputPassword.toUpperCase() === SUPER_PASSWORD) {
+      onSelectRacer(pendingRacerId);
+      setPendingRacerId(null);
+      return true;
+    }
+    
+    // 檢查選手密碼
+    if (racer.password && inputPassword === racer.password) {
+      onSelectRacer(pendingRacerId);
+      setPendingRacerId(null);
+      return true;
+    }
+    
+    return false;
   };
 
   // 只顯示選中的選手，簡化顯示
@@ -104,6 +145,18 @@ const RacerList: React.FC<RacerListProps> = ({
           </div>
         </div>
       )}
+
+      {/* 密碼驗證彈窗 */}
+      <PasswordModal
+        isOpen={showPasswordModal}
+        onClose={() => {
+          setShowPasswordModal(false);
+          setPendingRacerId(null);
+        }}
+        onVerify={handlePasswordVerify}
+        title={pendingRacerId ? `請輸入 ${racers.find(r => r.id === pendingRacerId)?.name || '選手'} 的密碼` : '請輸入密碼'}
+        theme={theme}
+      />
     </div>
   );
 };

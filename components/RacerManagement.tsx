@@ -775,7 +775,18 @@ const RacerManagement: React.FC<RacerManagementProps> = ({
               }`}
             >
               <button
-                onClick={() => onSelectRacer(racer.id)}
+                onClick={() => {
+                  // 檢查是否需要密碼
+                  if (racer.requirePassword && racer.password) {
+                    setCurrentRacerForAction(racer);
+                    setPendingAction(() => () => {
+                      onSelectRacer(racer.id);
+                    });
+                    setShowPasswordModal(true);
+                  } else {
+                    onSelectRacer(racer.id);
+                  }
+                }}
                 className="w-full text-left"
               >
                 <div className="flex flex-col items-center space-y-3 mb-3">

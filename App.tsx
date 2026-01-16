@@ -140,6 +140,25 @@ function App() {
     }
   }, [racers, selectedRacerId]);
 
+  // 獲取用戶創建的選手ID列表（從 localStorage）
+  const getMyRacerIds = (): string[] => {
+    try {
+      const stored = localStorage.getItem('my_racer_ids');
+      return stored ? JSON.parse(stored) : [];
+    } catch {
+      return [];
+    }
+  };
+
+  // 將選手ID添加到用戶創建的列表中
+  const addToMyRacers = (racerId: string) => {
+    const myRacers = getMyRacerIds();
+    if (!myRacers.includes(racerId)) {
+      myRacers.push(racerId);
+      localStorage.setItem('my_racer_ids', JSON.stringify(myRacers));
+    }
+  };
+
   const addRacer = (name: string, color: string, avatar?: string, password?: string, requirePassword?: boolean, isPublic?: boolean) => {
     if (!firebaseInitialized || !db) {
       alert('Firebase 未初始化，無法新增選手。請檢查環境變數設定。');
@@ -168,6 +187,10 @@ function App() {
         console.error('新增選手失敗：', error);
         alert('新增選手失敗，請檢查網路連線或 Firebase 設定');
       });
+      
+      // 將此選手添加到用戶創建的列表中
+      addToMyRacers(newRacer.id);
+      
       setSelectedRacerId(newRacer.id);
     } catch (error) {
       console.error('新增選手時發生錯誤：', error);
@@ -330,16 +353,33 @@ function App() {
   };
 
   // 根據公開設定過濾記錄
-  // 只有當選手的 isPublic 為 true 時，才顯示該選手的記錄
+  // 1. 如果選手的 isPublic 為 true，所有人都可以看到
+  // 2. 如果選手的 isPublic 為 false 或 undefined，只有設定者（創建者）可以看到
   const getVisibleRecords = () => {
+    const myRacerIds = getMyRacerIds();
     return records.filter(record => {
       const racer = racers.find(r => r.id === record.racerId);
       // 如果找不到選手，不顯示
       if (!racer) return false;
-      // 如果選手的 isPublic 為 true，顯示記錄
-      // 如果 isPublic 為 false 或 undefined，不顯示（私有）
-      return racer.isPublic === true;
+      // 如果選手的 isPublic 為 true，顯示記錄（公開）
+      if (racer.isPublic === true) return true;
+      // 如果選手的 isPublic 為 false 或 undefined，只有創建者可以看到
+      return myRacerIds.includes(racer.id);
     });
+  };
+
+  // 獲取當前選手的記錄（包括私有記錄，如果用戶是創建者）
+  const getCurrentRacerRecords = (racerId: string | null) => {
+    if (!racerId) return [];
+    const myRacerIds = getMyRacerIds();
+    const racer = racers.find(r => r.id === racerId);
+    if (!racer) return [];
+    
+    // 如果選手是公開的，或者用戶是創建者，顯示所有記錄
+    if (racer.isPublic === true || myRacerIds.includes(racerId)) {
+      return records.filter(r => r.racerId === racerId);
+    }
+    return [];
   };
 
   const renderContent = () => {
@@ -362,35 +402,65 @@ function App() {
               <RecordForm racerId={selectedRacerId} onAddRecord={addRecord} theme={theme} />
             ) : null}
             
-            <div className="mt-8">
-              <div className="flex items-center justify-between mb-4">
-                <h3 className={`font-bold ${
-                  theme === 'cute' ? 'text-gray-700' :
-                  theme === 'tech' ? 'text-slate-300' :
-                  theme === 'dark' ? 'text-gray-200' :
-                  'text-gray-800'
-                }`}>
-                  今日最新紀錄（僅顯示公開資料）
-                </h3>
-                <button 
-                  onClick={() => setActiveTab('history')}
-                  className={`text-xs font-medium hover:underline ${
-                    theme === 'cute' ? 'text-pink-600 hover:text-pink-700' :
-                    theme === 'tech' ? 'text-cyan-400 hover:text-cyan-300' :
-                    theme === 'dark' ? 'text-gray-300 hover:text-gray-100' :
-                    'text-gray-700 hover:text-gray-900'
-                  }`}
-                >
-                  查看全部
-                </button>
+            {/* 顯示當前選手的記錄（包括私有記錄） */}
+            {selectedRacerId && (
+              <div className="mt-8">
+                <div className="flex items-center justify-between mb-4">
+                  <h3 className={`font-bold ${
+                    theme === 'cute' ? 'text-gray-700' :
+                    theme === 'tech' ? 'text-slate-300' :
+                    theme === 'dark' ? 'text-gray-200' :
+                    'text-gray-800'
+                  }`}>
+                    {(() => {
+                      const racer = racers.find(r => r.id === selectedRacerId);
+                      const myRacerIds = getMyRacerIds();
+                      const isMyRacer = myRacerIds.includes(selectedRacerId);
+                      return isMyRacer ? `${racer?.name || '選手'} 的今日紀錄` : '今日最新紀錄（僅顯示公開資料）';
+                    })()}
+                  </h3>
+                  <button 
+                    onClick={() => setActiveTab('history')}
+                    className={`text-xs font-medium hover:underline ${
+                      theme === 'cute' ? 'text-pink-600 hover:text-pink-700' :
+                      theme === 'tech' ? 'text-cyan-400 hover:text-cyan-300' :
+                      theme === 'dark' ? 'text-gray-300 hover:text-gray-100' :
+                      'text-gray-700 hover:text-gray-900'
+                    }`}
+                  >
+                    查看全部
+                  </button>
+                </div>
+                <HistoryLog 
+                  racers={racers} 
+                  records={getCurrentRacerRecords(selectedRacerId).filter(r => r.dateStr === getLocalDateStr())} 
+                  onDeleteRecord={deleteRecord}
+                  theme={theme}
+                />
               </div>
-              <HistoryLog 
-                racers={racers} 
-                records={visibleRecords.filter(r => r.dateStr === getLocalDateStr())} 
-                onDeleteRecord={deleteRecord}
-                theme={theme}
-              />
-            </div>
+            )}
+            
+            {/* 顯示所有公開的今日紀錄 */}
+            {visibleRecords.filter(r => r.dateStr === getLocalDateStr() && r.racerId !== selectedRacerId).length > 0 && (
+              <div className="mt-8">
+                <div className="flex items-center justify-between mb-4">
+                  <h3 className={`font-bold ${
+                    theme === 'cute' ? 'text-gray-700' :
+                    theme === 'tech' ? 'text-slate-300' :
+                    theme === 'dark' ? 'text-gray-200' :
+                    'text-gray-800'
+                  }`}>
+                    其他選手的今日紀錄（公開資料）
+                  </h3>
+                </div>
+                <HistoryLog 
+                  racers={racers} 
+                  records={visibleRecords.filter(r => r.dateStr === getLocalDateStr() && r.racerId !== selectedRacerId)} 
+                  onDeleteRecord={deleteRecord}
+                  theme={theme}
+                />
+              </div>
+            )}
           </div>
         );
       case 'history':
