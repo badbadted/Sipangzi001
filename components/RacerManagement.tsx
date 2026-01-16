@@ -810,7 +810,19 @@ const RacerManagement: React.FC<RacerManagementProps> = ({
               </button>
               <div className="flex gap-2">
                 <button
-                  onClick={() => onSelectRacer(racer.id)}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    // 檢查是否需要密碼
+                    if (racer.requirePassword && racer.password) {
+                      setCurrentRacerForAction(racer);
+                      setPendingAction(() => () => {
+                        onSelectRacer(racer.id);
+                      });
+                      setShowPasswordModal(true);
+                    } else {
+                      onSelectRacer(racer.id);
+                    }
+                  }}
                   className={`flex-1 py-2 px-3 rounded-lg text-sm font-medium transition-colors ${
                     selectedRacerId === racer.id
                       ? theme === 'cute' ? 'bg-pink-100 text-pink-700' :

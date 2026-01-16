@@ -368,18 +368,11 @@ function App() {
     });
   };
 
-  // 獲取當前選手的記錄（包括私有記錄，如果用戶是創建者）
+  // 獲取當前選手的記錄（只要能選到該選手，就能看到該選手的全部資料）
   const getCurrentRacerRecords = (racerId: string | null) => {
     if (!racerId) return [];
-    const myRacerIds = getMyRacerIds();
-    const racer = racers.find(r => r.id === racerId);
-    if (!racer) return [];
-    
-    // 如果選手是公開的，或者用戶是創建者，顯示所有記錄
-    if (racer.isPublic === true || myRacerIds.includes(racerId)) {
-      return records.filter(r => r.racerId === racerId);
-    }
-    return [];
+    // 只要能選到該選手，就能看到該選手的全部資料
+    return records.filter(r => r.racerId === racerId);
   };
 
   const renderContent = () => {
@@ -402,7 +395,7 @@ function App() {
               <RecordForm racerId={selectedRacerId} onAddRecord={addRecord} theme={theme} />
             ) : null}
             
-            {/* 顯示當前選手的記錄（包括私有記錄） */}
+            {/* 顯示當前選手的記錄（只要能選到該選手，就能看到該選手的全部資料） */}
             {selectedRacerId && (
               <div className="mt-8">
                 <div className="flex items-center justify-between mb-4">
@@ -414,9 +407,7 @@ function App() {
                   }`}>
                     {(() => {
                       const racer = racers.find(r => r.id === selectedRacerId);
-                      const myRacerIds = getMyRacerIds();
-                      const isMyRacer = myRacerIds.includes(selectedRacerId);
-                      return isMyRacer ? `${racer?.name || '選手'} 的今日紀錄` : '今日最新紀錄（僅顯示公開資料）';
+                      return `${racer?.name || '選手'} 的今日紀錄`;
                     })()}
                   </h3>
                   <button 
@@ -440,7 +431,7 @@ function App() {
               </div>
             )}
             
-            {/* 顯示所有公開的今日紀錄 */}
+            {/* 顯示所有公開選手的今日紀錄 */}
             {visibleRecords.filter(r => r.dateStr === getLocalDateStr() && r.racerId !== selectedRacerId).length > 0 && (
               <div className="mt-8">
                 <div className="flex items-center justify-between mb-4">
