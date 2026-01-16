@@ -154,6 +154,19 @@ const RacerManagement: React.FC<RacerManagementProps> = ({
   };
 
   const handleStartEdit = (racer: Racer) => {
+    // 如果已經選中該選手，則不需要密碼驗證
+    if (selectedRacerId === racer.id) {
+      setEditingId(racer.id);
+      setNewName(racer.name);
+      setSelectedColor(racer.avatarColor);
+      setAvatarPreview(racer.avatar || null);
+      setPassword(racer.password || '');
+      setRequirePassword(racer.requirePassword || false);
+      setIsPublic(racer.isPublic || false);
+      setIsAdding(false);
+      return;
+    }
+    
     // 檢查是否需要密碼
     if (racer.requirePassword && racer.password) {
       setCurrentRacerForAction(racer);
@@ -211,6 +224,14 @@ const RacerManagement: React.FC<RacerManagementProps> = ({
   };
 
   const handleDeleteClick = (racer: Racer) => {
+    // 如果已經選中該選手，則不需要密碼驗證
+    if (selectedRacerId === racer.id) {
+      if (confirm(`確定要刪除 ${racer.name} 嗎？所有紀錄也會消失。`)) {
+        onDeleteRacer(racer.id);
+      }
+      return;
+    }
+    
     // 檢查是否需要密碼
     if (racer.requirePassword && racer.password) {
       setCurrentRacerForAction(racer);
