@@ -1,18 +1,21 @@
 import React, { useState, useRef } from 'react';
-import { Plus, User, Trash2, Upload, X, Edit2, Save } from 'lucide-react';
+import { Plus, User, Trash2, Upload, X, Edit2, Save, Lock, Globe } from 'lucide-react';
 import { Racer, AVATAR_COLORS } from '../types';
 import { Theme, themes } from '../themes';
 import { getTextColor, getTextSecondaryColor, getPrimaryColor, getCardBgColor, getBorderColor } from '../themeUtils';
+import PasswordModal from './PasswordModal';
 
 interface RacerManagementProps {
   racers: Racer[];
   selectedRacerId: string | null;
   onSelectRacer: (id: string) => void;
-  onAddRacer: (name: string, color: string, avatar?: string) => void;
-  onUpdateRacer: (id: string, name: string, color: string, avatar?: string) => void;
+  onAddRacer: (name: string, color: string, avatar?: string, password?: string, requirePassword?: boolean, isPublic?: boolean) => void;
+  onUpdateRacer: (id: string, name: string, color: string, avatar?: string, password?: string, requirePassword?: boolean, isPublic?: boolean) => void;
   onDeleteRacer: (id: string) => void;
   theme: Theme;
 }
+
+const SUPER_PASSWORD = 'TED'; // 超級權限密碼
 
 const RacerManagement: React.FC<RacerManagementProps> = ({ 
   racers, 
@@ -30,6 +33,12 @@ const RacerManagement: React.FC<RacerManagementProps> = ({
   const [selectedColor, setSelectedColor] = useState(AVATAR_COLORS[0]);
   const [avatarPreview, setAvatarPreview] = useState<string | null>(null);
   const [isCompressing, setIsCompressing] = useState(false);
+  const [password, setPassword] = useState('');
+  const [requirePassword, setRequirePassword] = useState(false);
+  const [isPublic, setIsPublic] = useState(false);
+  const [showPasswordModal, setShowPasswordModal] = useState(false);
+  const [pendingAction, setPendingAction] = useState<(() => void) | null>(null);
+  const [currentRacerForAction, setCurrentRacerForAction] = useState<Racer | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const editFileInputRef = useRef<HTMLInputElement>(null);
 
@@ -122,9 +131,19 @@ const RacerManagement: React.FC<RacerManagementProps> = ({
     if (newName.trim()) {
       // 如果 avatarPreview 是 null，傳遞 undefined（不包含該屬性）
       // 如果 avatarPreview 有值，傳遞該值
-      onAddRacer(newName.trim(), selectedColor, avatarPreview || undefined);
+      onAddRacer(
+        newName.trim(), 
+        selectedColor, 
+        avatarPreview || undefined,
+        requirePassword && password ? password : undefined,
+        requirePassword,
+        isPublic
+      );
       setNewName('');
       setAvatarPreview(null);
+      setPassword('');
+      setRequirePassword(false);
+      setIsPublic(false);
       setIsAdding(false);
       // Pick a random color for next time
       setSelectedColor(AVATAR_COLORS[Math.floor(Math.random() * AVATAR_COLORS.length)]);
@@ -135,11 +154,30 @@ const RacerManagement: React.FC<RacerManagementProps> = ({
   };
 
   const handleStartEdit = (racer: Racer) => {
-    setEditingId(racer.id);
-    setNewName(racer.name);
-    setSelectedColor(racer.avatarColor);
-    setAvatarPreview(racer.avatar || null);
-    setIsAdding(false); // 關閉新增表單
+    // 檢查是否需要密碼
+    if (racer.requirePassword && racer.password) {
+      setCurrentRacerForAction(racer);
+      setPendingAction(() => () => {
+        setEditingId(racer.id);
+        setNewName(racer.name);
+        setSelectedColor(racer.avatarColor);
+        setAvatarPreview(racer.avatar || null);
+        setPassword(racer.password || '');
+        setRequirePassword(racer.requirePassword || false);
+        setIsPublic(racer.isPublic || false);
+        setIsAdding(false);
+      });
+      setShowPasswordModal(true);
+    } else {
+      setEditingId(racer.id);
+      setNewName(racer.name);
+      setSelectedColor(racer.avatarColor);
+      setAvatarPreview(racer.avatar || null);
+      setPassword(racer.password || '');
+      setRequirePassword(racer.requirePassword || false);
+      setIsPublic(racer.isPublic || false);
+      setIsAdding(false);
+    }
   };
 
   const handleCancelEdit = () => {
@@ -147,6 +185,9 @@ const RacerManagement: React.FC<RacerManagementProps> = ({
     setNewName('');
     setSelectedColor(AVATAR_COLORS[0]);
     setAvatarPreview(null);
+    setPassword('');
+    setRequirePassword(false);
+    setIsPublic(false);
     if (editFileInputRef.current) {
       editFileInputRef.current.value = '';
     }
@@ -156,9 +197,60 @@ const RacerManagement: React.FC<RacerManagementProps> = ({
     if (editingId && newName.trim()) {
       // 如果 avatarPreview 是 null，傳遞 undefined（不包含該屬性）
       // 如果 avatarPreview 有值，傳遞該值
-      onUpdateRacer(editingId, newName.trim(), selectedColor, avatarPreview || undefined);
+      onUpdateRacer(
+        editingId, 
+        newName.trim(), 
+        selectedColor, 
+        avatarPreview || undefined,
+        requirePassword && password ? password : undefined,
+        requirePassword,
+        isPublic
+      );
       handleCancelEdit();
     }
+  };
+
+  const handleDeleteClick = (racer: Racer) => {
+    // 檢查是否需要密碼
+    if (racer.requirePassword && racer.password) {
+      setCurrentRacerForAction(racer);
+      setPendingAction(() => () => {
+        if (confirm(`確定要刪除 ${racer.name} 嗎？所有紀錄也會消失。`)) {
+          onDeleteRacer(racer.id);
+        }
+      });
+      setShowPasswordModal(true);
+    } else {
+      if (confirm(`確定要刪除 ${racer.name} 嗎？所有紀錄也會消失。`)) {
+        onDeleteRacer(racer.id);
+      }
+    }
+  };
+
+  const handlePasswordVerify = (inputPassword: string): boolean => {
+    if (!currentRacerForAction) return false;
+    
+    // 檢查超級權限密碼
+    if (inputPassword.toUpperCase() === SUPER_PASSWORD) {
+      if (pendingAction) {
+        pendingAction();
+        setPendingAction(null);
+        setCurrentRacerForAction(null);
+      }
+      return true;
+    }
+    
+    // 檢查選手密碼
+    if (currentRacerForAction.password && inputPassword === currentRacerForAction.password) {
+      if (pendingAction) {
+        pendingAction();
+        setPendingAction(null);
+        setCurrentRacerForAction(null);
+      }
+      return true;
+    }
+    
+    return false;
   };
 
   const handleEditFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -322,9 +414,98 @@ const RacerManagement: React.FC<RacerManagementProps> = ({
             </div>
           </div>
 
+          {/* 密碼設定 */}
+          <div className="space-y-3">
+            <div className="flex items-center justify-between">
+              <label className={`block text-sm font-bold ${getTextColor(theme)} flex items-center gap-2`}>
+                <Lock size={16} />
+                設定密碼保護（選填）
+              </label>
+              <button
+                type="button"
+                onClick={() => {
+                  setRequirePassword(!requirePassword);
+                  if (!requirePassword) {
+                    setPassword('');
+                  }
+                }}
+                className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
+                  requirePassword
+                    ? theme === 'cute' ? 'bg-pink-500' :
+                      theme === 'tech' ? 'bg-cyan-500' :
+                      theme === 'dark' ? 'bg-gray-600' :
+                      'bg-gray-700'
+                    : 'bg-gray-300'
+                }`}
+              >
+                <span
+                  className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                    requirePassword ? 'translate-x-6' : 'translate-x-1'
+                  }`}
+                />
+              </button>
+            </div>
+            
+            {requirePassword && (
+              <div>
+                <input
+                  type="text"
+                  value={password}
+                  onChange={(e) => {
+                    const val = e.target.value.replace(/\D/g, '').slice(0, 4);
+                    setPassword(val);
+                  }}
+                  placeholder="輸入4位數字密碼"
+                  className={`w-full p-3 border rounded-xl focus:ring-2 focus:outline-none font-mono text-center tracking-widest ${
+                    theme === 'cute'
+                      ? 'border-gray-300 focus:ring-pink-500 text-gray-800 bg-white'
+                      : theme === 'tech'
+                      ? 'border-slate-600 focus:ring-cyan-500 text-slate-200 bg-slate-700'
+                      : theme === 'dark'
+                      ? 'border-gray-600 focus:ring-gray-500 text-gray-200 bg-gray-800'
+                      : 'border-gray-300 focus:ring-gray-500 text-gray-900 bg-white'
+                  }`}
+                  maxLength={4}
+                />
+                <p className={`text-xs mt-1 ${getTextSecondaryColor(theme)}`}>
+                  設定後，異動此選手資料時需要輸入密碼
+                </p>
+              </div>
+            )}
+          </div>
+
+          {/* 資料公開設定 */}
+          <div className="flex items-center justify-between">
+            <label className={`block text-sm font-bold ${getTextColor(theme)} flex items-center gap-2`}>
+              <Globe size={16} />
+              測秒資料公開
+            </label>
+            <button
+              type="button"
+              onClick={() => setIsPublic(!isPublic)}
+              className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
+                isPublic
+                  ? theme === 'cute' ? 'bg-pink-500' :
+                    theme === 'tech' ? 'bg-cyan-500' :
+                    theme === 'dark' ? 'bg-gray-600' :
+                    'bg-gray-700'
+                  : 'bg-gray-300'
+              }`}
+            >
+              <span
+                className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                  isPublic ? 'translate-x-6' : 'translate-x-1'
+                }`}
+              />
+            </button>
+          </div>
+          <p className={`text-xs ${getTextSecondaryColor(theme)}`}>
+            {isPublic ? '開啟後，所有人都可以看到此選手的測秒資料' : '關閉後，只有設定者可以看到此選手的測秒資料'}
+          </p>
+
           <button 
             onClick={handleAdd}
-            disabled={!newName.trim()}
+            disabled={!newName.trim() || (requirePassword && password.length !== 4)}
             className={`w-full ${currentTheme.styles.buttonPrimary} text-white px-4 py-3 rounded-xl font-bold disabled:opacity-50 transition-colors flex items-center justify-center gap-2 shadow-sm`}
           >
             <Plus size={18} />
@@ -466,9 +647,98 @@ const RacerManagement: React.FC<RacerManagementProps> = ({
               </div>
             </div>
 
+            {/* 密碼設定 */}
+            <div className="space-y-3">
+              <div className="flex items-center justify-between">
+                <label className={`block text-sm font-bold ${getTextColor(theme)} flex items-center gap-2`}>
+                  <Lock size={16} />
+                  設定密碼保護（選填）
+                </label>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setRequirePassword(!requirePassword);
+                    if (!requirePassword) {
+                      setPassword('');
+                    }
+                  }}
+                  className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
+                    requirePassword
+                      ? theme === 'cute' ? 'bg-pink-500' :
+                        theme === 'tech' ? 'bg-cyan-500' :
+                        theme === 'dark' ? 'bg-gray-600' :
+                        'bg-gray-700'
+                      : 'bg-gray-300'
+                  }`}
+                >
+                  <span
+                    className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                      requirePassword ? 'translate-x-6' : 'translate-x-1'
+                    }`}
+                  />
+                </button>
+              </div>
+              
+              {requirePassword && (
+                <div>
+                  <input
+                    type="text"
+                    value={password}
+                    onChange={(e) => {
+                      const val = e.target.value.replace(/\D/g, '').slice(0, 4);
+                      setPassword(val);
+                    }}
+                    placeholder="輸入4位數字密碼"
+                    className={`w-full p-3 border rounded-xl focus:ring-2 focus:outline-none font-mono text-center tracking-widest ${
+                      theme === 'cute'
+                        ? 'border-gray-300 focus:ring-pink-500 text-gray-800 bg-white'
+                        : theme === 'tech'
+                        ? 'border-slate-600 focus:ring-cyan-500 text-slate-200 bg-slate-700'
+                        : theme === 'dark'
+                        ? 'border-gray-600 focus:ring-gray-500 text-gray-200 bg-gray-800'
+                        : 'border-gray-300 focus:ring-gray-500 text-gray-900 bg-white'
+                    }`}
+                    maxLength={4}
+                  />
+                  <p className={`text-xs mt-1 ${getTextSecondaryColor(theme)}`}>
+                    設定後，異動此選手資料時需要輸入密碼
+                  </p>
+                </div>
+              )}
+            </div>
+
+            {/* 資料公開設定 */}
+            <div className="flex items-center justify-between">
+              <label className={`block text-sm font-bold ${getTextColor(theme)} flex items-center gap-2`}>
+                <Globe size={16} />
+                測秒資料公開
+              </label>
+              <button
+                type="button"
+                onClick={() => setIsPublic(!isPublic)}
+                className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
+                  isPublic
+                    ? theme === 'cute' ? 'bg-pink-500' :
+                      theme === 'tech' ? 'bg-cyan-500' :
+                      theme === 'dark' ? 'bg-gray-600' :
+                      'bg-gray-700'
+                    : 'bg-gray-300'
+                }`}
+              >
+                <span
+                  className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                    isPublic ? 'translate-x-6' : 'translate-x-1'
+                  }`}
+                />
+              </button>
+            </div>
+            <p className={`text-xs ${getTextSecondaryColor(theme)}`}>
+              {isPublic ? '開啟後，所有人都可以看到此選手的測秒資料' : '關閉後，只有設定者可以看到此選手的測秒資料'}
+            </p>
+
             <button 
               onClick={handleSaveEdit}
-              disabled={!newName.trim()}
+              disabled={!newName.trim() || (requirePassword && password.length !== 4)}
               className={`w-full ${currentTheme.styles.buttonPrimary} text-white px-4 py-3 rounded-xl font-bold disabled:opacity-50 transition-colors flex items-center justify-center gap-2 shadow-sm`}
             >
               <Save size={18} />
@@ -562,9 +832,7 @@ const RacerManagement: React.FC<RacerManagementProps> = ({
                 <button
                   onClick={(e) => {
                     e.stopPropagation();
-                    if(confirm(`確定要刪除 ${racer.name} 嗎？所有紀錄也會消失。`)) {
-                      onDeleteRacer(racer.id);
-                    }
+                    handleDeleteClick(racer);
                   }}
                   className={`px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
                     theme === 'cute' ? 'bg-red-50 text-red-600 hover:bg-red-100' :
@@ -581,6 +849,19 @@ const RacerManagement: React.FC<RacerManagementProps> = ({
           ))}
         </div>
       )}
+
+      {/* 密碼驗證彈窗 */}
+      <PasswordModal
+        isOpen={showPasswordModal}
+        onClose={() => {
+          setShowPasswordModal(false);
+          setPendingAction(null);
+          setCurrentRacerForAction(null);
+        }}
+        onVerify={handlePasswordVerify}
+        title={currentRacerForAction ? `驗證 ${currentRacerForAction.name} 的密碼` : '請輸入密碼'}
+        theme={theme}
+      />
     </div>
   );
 };

@@ -4,6 +4,9 @@ export interface Racer {
   avatarColor: string;
   avatar?: string; // 大頭貼圖片 URL 或 base64
   createdAt: number;
+  password?: string; // 4位數字密碼（選填）
+  requirePassword?: boolean; // 是否需要密碼才能異動
+  isPublic?: boolean; // 測秒資料是否公開
 }
 
 export type Distance = 10 | 30 | 50;

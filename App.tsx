@@ -140,7 +140,7 @@ function App() {
     }
   }, [racers, selectedRacerId]);
 
-  const addRacer = (name: string, color: string, avatar?: string) => {
+  const addRacer = (name: string, color: string, avatar?: string, password?: string, requirePassword?: boolean, isPublic?: boolean) => {
     if (!firebaseInitialized || !db) {
       alert('Firebase 未初始化，無法新增選手。請檢查環境變數設定。');
       return;
@@ -158,7 +158,10 @@ function App() {
         name,
         avatarColor: color,
         ...(avatar && { avatar }), // 只有當 avatar 存在時才包含
-        createdAt: Date.now()
+        createdAt: Date.now(),
+        ...(password && { password }),
+        ...(requirePassword !== undefined && { requirePassword }),
+        ...(isPublic !== undefined && { isPublic })
       };
       // Save to Firebase
       set(newRacerRef, newRacer).catch((error) => {
@@ -172,7 +175,7 @@ function App() {
     }
   };
 
-  const updateRacer = (id: string, name: string, color: string, avatar?: string) => {
+  const updateRacer = (id: string, name: string, color: string, avatar?: string, password?: string, requirePassword?: boolean, isPublic?: boolean) => {
     if (!firebaseInitialized || !db) {
       alert('Firebase 未初始化，無法更新選手。請檢查環境變數設定。');
       return;
@@ -193,13 +196,11 @@ function App() {
         avatarColor: color,
         createdAt: existingRacer.createdAt,
         // 只有當 avatar 不是 undefined 時才包含
-        ...(avatar !== undefined && { avatar: avatar || null })
+        ...(avatar !== undefined && { avatar: avatar || null }),
+        ...(password !== undefined && { password: password || null }),
+        ...(requirePassword !== undefined && { requirePassword }),
+        ...(isPublic !== undefined && { isPublic })
       };
-      
-      set(racerRef, updatedRacer).catch((error) => {
-        console.error('更新選手失敗：', error);
-        alert('更新選手失敗，請檢查網路連線或 Firebase 設定');
-      });
       
       set(racerRef, updatedRacer).catch((error) => {
         console.error('更新選手失敗：', error);
@@ -328,7 +329,22 @@ function App() {
     }
   };
 
+  // 根據公開設定過濾記錄
+  // 只有當選手的 isPublic 為 true 時，才顯示該選手的記錄
+  const getVisibleRecords = () => {
+    return records.filter(record => {
+      const racer = racers.find(r => r.id === record.racerId);
+      // 如果找不到選手，不顯示
+      if (!racer) return false;
+      // 如果選手的 isPublic 為 true，顯示記錄
+      // 如果 isPublic 為 false 或 undefined，不顯示（私有）
+      return racer.isPublic === true;
+    });
+  };
+
   const renderContent = () => {
+    const visibleRecords = getVisibleRecords();
+    
     switch (activeTab) {
       case 'record':
         return (
@@ -354,7 +370,7 @@ function App() {
                   theme === 'dark' ? 'text-gray-200' :
                   'text-gray-800'
                 }`}>
-                  今日最新紀錄
+                  今日最新紀錄（僅顯示公開資料）
                 </h3>
                 <button 
                   onClick={() => setActiveTab('history')}
@@ -370,7 +386,7 @@ function App() {
               </div>
               <HistoryLog 
                 racers={racers} 
-                records={records.filter(r => r.dateStr === getLocalDateStr())} 
+                records={visibleRecords.filter(r => r.dateStr === getLocalDateStr())} 
                 onDeleteRecord={deleteRecord}
                 theme={theme}
               />
@@ -392,9 +408,9 @@ function App() {
                 theme === 'dark' ? 'text-gray-400' :
                 'text-gray-700'
               } />
-              歷史紀錄
+              歷史紀錄（僅顯示公開資料）
             </h2>
-            <HistoryLog racers={racers} records={records} onDeleteRecord={deleteRecord} theme={theme} />
+            <HistoryLog racers={racers} records={visibleRecords} onDeleteRecord={deleteRecord} theme={theme} />
           </div>
         );
       case 'racers':
@@ -426,9 +442,9 @@ function App() {
                 theme === 'dark' ? 'text-gray-400' :
                 'text-gray-700'
               } />
-              數據分析
+              數據分析（僅顯示公開資料）
             </h2>
-            <Analysis racers={racers} records={records} theme={theme} />
+            <Analysis racers={racers} records={visibleRecords} theme={theme} />
           </div>
         );
     }
