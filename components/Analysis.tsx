@@ -74,6 +74,34 @@ const Analysis: React.FC<AnalysisProps> = ({ records, racers, theme }) => {
       }));
   }, [selectedRacerId, records]);
 
+  // 30米數據
+  const chartData30m = useMemo(() => {
+    if (!selectedRacerId) return [];
+    
+    return records
+      .filter(r => r.racerId === selectedRacerId && r.distance === 30)
+      .sort((a, b) => a.timestamp - b.timestamp)
+      .map(r => ({
+        date: r.dateStr.slice(5), // MM-DD
+        time: r.timeSeconds,
+        timestamp: r.timestamp
+      }));
+  }, [selectedRacerId, records]);
+
+  // 50米數據
+  const chartData50m = useMemo(() => {
+    if (!selectedRacerId) return [];
+    
+    return records
+      .filter(r => r.racerId === selectedRacerId && r.distance === 50)
+      .sort((a, b) => a.timestamp - b.timestamp)
+      .map(r => ({
+        date: r.dateStr.slice(5), // MM-DD
+        time: r.timeSeconds,
+        timestamp: r.timestamp
+      }));
+  }, [selectedRacerId, records]);
+
   // 通用圖表數據（用於其他距離）
   const chartData = useMemo(() => {
     if (!selectedRacerId) return [];
@@ -191,6 +219,12 @@ const Analysis: React.FC<AnalysisProps> = ({ records, racers, theme }) => {
     return differenceData.sort((a, b) => a.timestamp - b.timestamp);
   }, [selectedRacerId, records]);
 
+  // 判斷30米是否有關聯到10米的資料
+  const has30mWith10m = useMemo(() => {
+    if (!selectedRacerId || selectedDistance !== 30) return false;
+    return timeDifferenceData.length > 0;
+  }, [selectedRacerId, selectedDistance, timeDifferenceData]);
+
   if (racers.length === 0) {
     return (
       <div className={`text-center py-10 ${getTextSecondaryColor(theme)}`}>
@@ -291,8 +325,8 @@ const Analysis: React.FC<AnalysisProps> = ({ records, racers, theme }) => {
           </div>
       </div>
 
-      {/* 10米每日秒數變化（保留獨立 10 米線圖，方便對照） */}
-      {chartData10m.length > 0 && (
+      {/* 10米每日秒數變化：選擇10m時顯示，或選擇30m且有配對資料時顯示 */}
+      {chartData10m.length > 0 && (selectedDistance === 10 || (selectedDistance === 30 && has30mWith10m)) && (
         <div className={`${currentTheme.styles.cardBg} p-4 rounded-xl shadow-sm border ${currentTheme.colors.border}`}>
           <h3 className={`text-sm font-bold mb-4 ${getTextColor(theme)}`}>
             10米每日秒數變化
@@ -335,44 +369,95 @@ const Analysis: React.FC<AnalysisProps> = ({ records, racers, theme }) => {
         </div>
       )}
 
-      {/* 每日秒數變化（根據選擇的距離顯示） */}
-      {chartData.length > 0 && (
+      {/* 30米每日秒數變化（只在選擇30m時顯示） */}
+      {selectedDistance === 30 && chartData30m.length > 0 && (
         <div className={`${currentTheme.styles.cardBg} p-4 rounded-xl shadow-sm border ${currentTheme.colors.border}`}>
           <h3 className={`text-sm font-bold mb-4 ${getTextColor(theme)}`}>
-            {selectedDistance}米每日秒數變化
+            30米每日秒數變化
           </h3>
           <div className="h-64">
-            {chartData.length > 0 ? (
+            {chartData30m.length > 0 ? (
               <ResponsiveContainer width="100%" height="100%">
-                <LineChart data={chartData}>
+                <LineChart data={chartData30m}>
                   <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f0f0f0" />
                   <XAxis dataKey="date" tick={{fontSize: 10}} stroke="#9ca3af" />
                   <YAxis domain={['auto', 'auto']} tick={{fontSize: 10}} stroke="#9ca3af" />
                   <Tooltip 
                     contentStyle={{borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)'}}
                     labelStyle={{color: '#6b7280', fontSize: '12px'}}
-                    formatter={(value: number) => [`${value.toFixed(2)} 秒`, `${selectedDistance}米`]}
+                    formatter={(value: number) => [`${value.toFixed(2)} 秒`, '30米']}
                   />
                   <Line 
                     type="monotone" 
                     dataKey="time" 
                     stroke={
-                      theme === 'cute' ? '#ec4899' :
-                      theme === 'tech' ? '#06b6d4' :
-                      theme === 'dark' ? '#9ca3af' :
-                      '#4f46e5'
+                      theme === 'cute' ? '#f43f5e' :
+                      theme === 'tech' ? '#3b82f6' :
+                      theme === 'dark' ? '#60a5fa' :
+                      '#3b82f6'
                     }
                     strokeWidth={3} 
                     dot={{ 
-                      fill: theme === 'cute' ? '#ec4899' :
-                            theme === 'tech' ? '#06b6d4' :
-                            theme === 'dark' ? '#9ca3af' :
-                            '#4f46e5',
+                      fill: theme === 'cute' ? '#f43f5e' :
+                            theme === 'tech' ? '#3b82f6' :
+                            theme === 'dark' ? '#60a5fa' :
+                            '#3b82f6',
                       strokeWidth: 2 
                     }} 
                     activeDot={{ r: 6 }}
                     animationDuration={1000}
-                    name={`${selectedDistance}米`}
+                    name="30米"
+                  />
+                </LineChart>
+              </ResponsiveContainer>
+            ) : (
+              <div className={`h-full flex flex-col items-center justify-center ${getTextSecondaryColor(theme)}`}>
+                <Activity className="mb-2 opacity-50" />
+                <span className="text-sm">資料不足，無法顯示圖表</span>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* 50米每日秒數變化（只在選擇50m時顯示） */}
+      {selectedDistance === 50 && chartData50m.length > 0 && (
+        <div className={`${currentTheme.styles.cardBg} p-4 rounded-xl shadow-sm border ${currentTheme.colors.border}`}>
+          <h3 className={`text-sm font-bold mb-4 ${getTextColor(theme)}`}>
+            50米每日秒數變化
+          </h3>
+          <div className="h-64">
+            {chartData50m.length > 0 ? (
+              <ResponsiveContainer width="100%" height="100%">
+                <LineChart data={chartData50m}>
+                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f0f0f0" />
+                  <XAxis dataKey="date" tick={{fontSize: 10}} stroke="#9ca3af" />
+                  <YAxis domain={['auto', 'auto']} tick={{fontSize: 10}} stroke="#9ca3af" />
+                  <Tooltip 
+                    contentStyle={{borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)'}}
+                    labelStyle={{color: '#6b7280', fontSize: '12px'}}
+                    formatter={(value: number) => [`${value.toFixed(2)} 秒`, '50米']}
+                  />
+                  <Line 
+                    type="monotone" 
+                    dataKey="time" 
+                    stroke={
+                      theme === 'cute' ? '#f97316' :
+                      theme === 'tech' ? '#8b5cf6' :
+                      theme === 'dark' ? '#a78bfa' :
+                      '#8b5cf6'
+                    }
+                    strokeWidth={3} 
+                    dot={{ 
+                      fill: theme === 'cute' ? '#f97316' :
+                            theme === 'tech' ? '#8b5cf6' :
+                            theme === 'dark' ? '#a78bfa' :
+                            '#8b5cf6',
+                      strokeWidth: 2 
+                    }} 
+                    activeDot={{ r: 6 }}
+                    animationDuration={1000}
+                    name="50米"
                   />
                 </LineChart>
               </ResponsiveContainer>
