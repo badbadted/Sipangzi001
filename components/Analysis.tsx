@@ -37,89 +37,6 @@ const Analysis: React.FC<AnalysisProps> = ({ records, racers, theme }) => {
       }));
   }, [selectedRacerId, records]);
 
-  // 30米數據（包含有10米和沒有10米的）
-  const chartData30m = useMemo(() => {
-    if (!selectedRacerId) return [];
-    
-    return records
-      .filter(r => r.racerId === selectedRacerId && r.distance === 30)
-      .sort((a, b) => a.timestamp - b.timestamp)
-      .map(r => ({
-        date: r.dateStr.slice(5), // MM-DD
-        time: r.timeSeconds,
-        timestamp: r.timestamp,
-        dateStr: r.dateStr
-      }));
-  }, [selectedRacerId, records]);
-
-  // 30米和10米對照數據（合併顯示）
-  const chartData30mWith10m = useMemo(() => {
-    if (!selectedRacerId) return [];
-    
-    // 獲取所有30米和10米記錄
-    const records30m = records.filter(r => r.racerId === selectedRacerId && r.distance === 30);
-    const records10m = records.filter(r => r.racerId === selectedRacerId && r.distance === 10);
-    
-    // 如果沒有30米記錄，直接返回空數組
-    if (records30m.length === 0) return [];
-    
-    // 按完整日期（YYYY-MM-DD）分組，這樣可以正確處理跨年的情況
-    const dateMap: { [date: string]: { time30m?: number, time10m?: number, timestamp: number } } = {};
-    
-    // 處理30米記錄：同一天如果有多筆，取最早的一筆
-    records30m.forEach(r => {
-      const dateKey = r.dateStr; // 使用完整日期 YYYY-MM-DD
-      if (!dateMap[dateKey]) {
-        dateMap[dateKey] = { timestamp: r.timestamp };
-        dateMap[dateKey].time30m = r.timeSeconds;
-      } else {
-        // 如果有多筆，保留時間戳最早的
-        if (r.timestamp < dateMap[dateKey].timestamp) {
-          dateMap[dateKey].time30m = r.timeSeconds;
-          dateMap[dateKey].timestamp = r.timestamp;
-        }
-      }
-    });
-    
-    // 處理10米記錄：同一天如果有多筆，找最接近30米記錄時間戳的
-    records10m.forEach(r => {
-      const dateKey = r.dateStr; // 使用完整日期 YYYY-MM-DD
-      if (dateMap[dateKey] && dateMap[dateKey].time30m !== undefined) {
-        // 如果這天已經有30米記錄
-        const time30m = dateMap[dateKey].timestamp;
-        const timeDiff = Math.abs(r.timestamp - time30m);
-        
-        if (dateMap[dateKey].time10m === undefined) {
-          // 如果還沒有10米數據，直接設置
-          dateMap[dateKey].time10m = r.timeSeconds;
-        } else {
-          // 如果已經有10米數據，需要找最接近30米時間戳的10米記錄
-          // 先找到當前10米記錄對應的原始記錄
-          const current10mRecord = records10m.find(r10 => 
-            r10.dateStr === dateKey && 
-            Math.abs(r10.timestamp - time30m) === Math.abs((dateMap[dateKey].time10m || 0) - time30m)
-          );
-          const existingTimeDiff = current10mRecord ? Math.abs(current10mRecord.timestamp - time30m) : Infinity;
-          
-          if (timeDiff < existingTimeDiff) {
-            dateMap[dateKey].time10m = r.timeSeconds;
-          }
-        }
-      }
-    });
-    
-    // 轉換為數組並排序
-    return Object.entries(dateMap)
-      .map(([dateStr, data]) => ({
-        date: dateStr.slice(5), // MM-DD 用於顯示
-        time30m: data.time30m,
-        time10m: data.time10m,
-        timestamp: data.timestamp
-      }))
-      .filter(d => d.time30m !== undefined) // 只保留有30米記錄的日期
-      .sort((a, b) => a.timestamp - b.timestamp);
-  }, [selectedRacerId, records]);
-
   // 30米但沒有10米的記錄
   const chartData30mWithout10m = useMemo(() => {
     if (!selectedRacerId) return [];
@@ -374,130 +291,46 @@ const Analysis: React.FC<AnalysisProps> = ({ records, racers, theme }) => {
           </div>
       </div>
 
-      {/* 10米每日秒數變化 */}
+      {/* 10米每日秒數變化（保留獨立 10 米線圖，方便對照） */}
       {chartData10m.length > 0 && (
         <div className={`${currentTheme.styles.cardBg} p-4 rounded-xl shadow-sm border ${currentTheme.colors.border}`}>
           <h3 className={`text-sm font-bold mb-4 ${getTextColor(theme)}`}>
             10米每日秒數變化
           </h3>
           <div className="h-64">
-            {chartData10m.length > 0 ? (
-                <ResponsiveContainer width="100%" height="100%">
-                <LineChart data={chartData10m}>
-                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f0f0f0" />
-                    <XAxis dataKey="date" tick={{fontSize: 10}} stroke="#9ca3af" />
-                    <YAxis domain={['auto', 'auto']} tick={{fontSize: 10}} stroke="#9ca3af" />
-                    <Tooltip 
-                        contentStyle={{borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)'}}
-                        labelStyle={{color: '#6b7280', fontSize: '12px'}}
-                        formatter={(value: number) => [`${value.toFixed(2)} 秒`, '10米']}
-                    />
-                    <Line 
-                        type="monotone" 
-                        dataKey="time" 
-                        stroke={
-                          theme === 'cute' ? '#ec4899' :
+            <ResponsiveContainer width="100%" height="100%">
+              <LineChart data={chartData10m}>
+                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f0f0f0" />
+                <XAxis dataKey="date" tick={{ fontSize: 10 }} stroke="#9ca3af" />
+                <YAxis domain={['auto', 'auto']} tick={{ fontSize: 10 }} stroke="#9ca3af" />
+                <Tooltip
+                  contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)' }}
+                  labelStyle={{ color: '#6b7280', fontSize: '12px' }}
+                  formatter={(value: number) => [`${value.toFixed(2)} 秒`, '10米']}
+                />
+                <Line
+                  type="monotone"
+                  dataKey="time"
+                  stroke={
+                    theme === 'cute' ? '#ec4899' :
+                    theme === 'tech' ? '#06b6d4' :
+                    theme === 'dark' ? '#9ca3af' :
+                    '#4f46e5'
+                  }
+                  strokeWidth={3}
+                  dot={{
+                    fill: theme === 'cute' ? '#ec4899' :
                           theme === 'tech' ? '#06b6d4' :
                           theme === 'dark' ? '#9ca3af' :
-                          '#4f46e5'
-                        }
-                        strokeWidth={3} 
-                        dot={{ 
-                          fill: theme === 'cute' ? '#ec4899' :
-                                theme === 'tech' ? '#06b6d4' :
-                                theme === 'dark' ? '#9ca3af' :
-                                '#4f46e5',
-                          strokeWidth: 2 
-                        }} 
-                        activeDot={{ r: 6 }}
-                        animationDuration={1000}
-                        name="10米"
-                    />
-                </LineChart>
-                </ResponsiveContainer>
-            ) : (
-                <div className={`h-full flex flex-col items-center justify-center ${getTextSecondaryColor(theme)}`}>
-                    <Activity className="mb-2 opacity-50" />
-                    <span className="text-sm">資料不足，無法顯示圖表</span>
-                </div>
-            )}
-          </div>
-        </div>
-      )}
-
-      {/* 30米與10米對照圖 */}
-      {chartData30mWith10m.length > 0 && (
-        <div className={`${currentTheme.styles.cardBg} p-4 rounded-xl shadow-sm border ${currentTheme.colors.border}`}>
-          <h3 className={`text-sm font-bold mb-4 ${getTextColor(theme)}`}>
-            30米與10米對照圖
-          </h3>
-          <div className="h-64">
-            {chartData30mWith10m.length > 0 ? (
-                <ResponsiveContainer width="100%" height="100%">
-                <LineChart data={chartData30mWith10m}>
-                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f0f0f0" />
-                    <XAxis dataKey="date" tick={{fontSize: 10}} stroke="#9ca3af" />
-                    <YAxis domain={['auto', 'auto']} tick={{fontSize: 10}} stroke="#9ca3af" />
-                    <Tooltip 
-                        contentStyle={{borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)'}}
-                        labelStyle={{color: '#6b7280', fontSize: '12px'}}
-                        formatter={(value: number, name: string) => {
-                          if (value === null || value === undefined) return ['--', name];
-                          return [`${value.toFixed(2)} 秒`, name];
-                        }}
-                    />
-                    <Line 
-                        type="monotone" 
-                        dataKey="time30m" 
-                        stroke={
-                          theme === 'cute' ? '#f43f5e' :
-                          theme === 'tech' ? '#3b82f6' :
-                          theme === 'dark' ? '#60a5fa' :
-                          '#3b82f6'
-                        }
-                        strokeWidth={3} 
-                        dot={{ 
-                          fill: theme === 'cute' ? '#f43f5e' :
-                                theme === 'tech' ? '#3b82f6' :
-                                theme === 'dark' ? '#60a5fa' :
-                                '#3b82f6',
-                          strokeWidth: 2 
-                        }} 
-                        activeDot={{ r: 6 }}
-                        animationDuration={1000}
-                        name="30米"
-                        connectNulls={false}
-                    />
-                    <Line 
-                        type="monotone" 
-                        dataKey="time10m" 
-                        stroke={
-                          theme === 'cute' ? '#ec4899' :
-                          theme === 'tech' ? '#06b6d4' :
-                          theme === 'dark' ? '#9ca3af' :
-                          '#4f46e5'
-                        }
-                        strokeWidth={3} 
-                        dot={{ 
-                          fill: theme === 'cute' ? '#ec4899' :
-                                theme === 'tech' ? '#06b6d4' :
-                                theme === 'dark' ? '#9ca3af' :
-                                '#4f46e5',
-                          strokeWidth: 2 
-                        }} 
-                        activeDot={{ r: 6 }}
-                        animationDuration={1000}
-                        name="10米"
-                        connectNulls={false}
-                    />
-                </LineChart>
-                </ResponsiveContainer>
-            ) : (
-                <div className={`h-full flex flex-col items-center justify-center ${getTextSecondaryColor(theme)}`}>
-                    <Activity className="mb-2 opacity-50" />
-                    <span className="text-sm">資料不足，無法顯示圖表</span>
-                </div>
-            )}
+                          '#4f46e5',
+                    strokeWidth: 2
+                  }}
+                  activeDot={{ r: 6 }}
+                  animationDuration={1000}
+                  name="10米"
+                />
+              </LineChart>
+            </ResponsiveContainer>
           </div>
         </div>
       )}
