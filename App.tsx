@@ -455,6 +455,14 @@ function App() {
           </div>
         );
       case 'history':
+        // 如果有選中的選手，顯示該選手的全部記錄 + 其他公開選手的記錄
+        const historyRecords = selectedRacerId 
+          ? [
+              ...getCurrentRacerRecords(selectedRacerId), // 選中選手的全部記錄（不管是否公開）
+              ...visibleRecords.filter(r => r.racerId !== selectedRacerId) // 其他公開選手的記錄
+            ]
+          : visibleRecords; // 沒有選中選手時，只顯示公開資料
+        
         return (
           <div className="animate-fade-in">
             <h2 className={`text-xl font-bold mb-6 flex items-center gap-2 ${
@@ -469,9 +477,11 @@ function App() {
                 theme === 'dark' ? 'text-gray-400' :
                 'text-gray-700'
               } />
-              歷史紀錄（僅顯示公開資料）
+              {selectedRacerId 
+                ? '歷史紀錄（包含選中選手的全部資料）'
+                : '歷史紀錄（僅顯示公開資料）'}
             </h2>
-            <HistoryLog racers={racers} records={visibleRecords} onDeleteRecord={deleteRecord} theme={theme} />
+            <HistoryLog racers={racers} records={historyRecords} onDeleteRecord={deleteRecord} theme={theme} />
           </div>
         );
       case 'racers':
