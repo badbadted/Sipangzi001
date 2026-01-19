@@ -1,6 +1,6 @@
 import React, { useMemo, useState } from 'react';
 import { Calendar, Trash2, AlertCircle } from 'lucide-react';
-import { Record, GroupedRecords, Racer } from '../types';
+import { Record, GroupedRecords, Racer, Distance } from '../types';
 import { Theme, themes } from '../themes';
 import { getTextColor, getTextSecondaryColor, getPrimaryColor, getCardBgColor, getBorderColor } from '../themeUtils';
 
@@ -14,10 +14,19 @@ interface HistoryLogProps {
 const HistoryLog: React.FC<HistoryLogProps> = ({ records, racers, onDeleteRecord, theme }) => {
   const currentTheme = themes[theme] || themes['light'];
   const [deleteId, setDeleteId] = useState<string | null>(null);
+  const [selectedDistance, setSelectedDistance] = useState<Distance | 'all'>('all');
+  
+  // 根據選擇的距離過濾記錄
+  const filteredRecords = useMemo(() => {
+    if (selectedDistance === 'all') {
+      return records;
+    }
+    return records.filter(r => r.distance === selectedDistance);
+  }, [records, selectedDistance]);
   
   const groupedRecords = useMemo(() => {
     const groups: GroupedRecords = {};
-    records.forEach(record => {
+    filteredRecords.forEach(record => {
       if (!groups[record.dateStr]) {
         groups[record.dateStr] = [];
       }
@@ -31,7 +40,7 @@ const HistoryLog: React.FC<HistoryLogProps> = ({ records, racers, onDeleteRecord
       }, 
       {} as GroupedRecords
     );
-  }, [records]);
+  }, [filteredRecords]);
 
   const getRacer = (id: string) => racers.find(r => r.id === id);
 
@@ -60,7 +69,64 @@ const HistoryLog: React.FC<HistoryLogProps> = ({ records, racers, onDeleteRecord
 
   return (
     <>
-      <div className="space-y-6">
+      {/* 距離篩選器 */}
+      <div className={`${currentTheme.styles.cardBg} p-4 rounded-xl shadow-sm border ${currentTheme.colors.border} mb-6`}>
+        <label className={`block text-xs font-bold uppercase tracking-wide mb-2 ${getTextSecondaryColor(theme)}`}>
+          距離篩選
+        </label>
+        <div className="flex gap-2">
+          <button
+            onClick={() => setSelectedDistance('all')}
+            className={`flex-1 py-2 rounded-lg text-sm font-medium transition-colors ${
+              selectedDistance === 'all'
+                ? theme === 'cute' ? 'bg-pink-100 text-pink-700 border border-pink-200' :
+                  theme === 'tech' ? 'bg-cyan-500/20 text-cyan-300 border border-cyan-500/30' :
+                  theme === 'dark' ? 'bg-gray-600/30 text-gray-200 border border-gray-500/30' :
+                  'bg-gray-100 text-gray-700 border border-gray-300'
+                : theme === 'cute' ? 'bg-white border border-gray-200 text-gray-600' :
+                  theme === 'tech' ? 'bg-slate-700 border border-slate-600 text-slate-400' :
+                  theme === 'dark' ? 'bg-gray-700 border border-gray-600 text-gray-400' :
+                  'bg-white border border-gray-200 text-gray-600'
+            }`}
+          >
+            全部
+          </button>
+          {[10, 30, 50].map((d) => (
+            <button
+              key={d}
+              onClick={() => setSelectedDistance(d as Distance)}
+              className={`flex-1 py-2 rounded-lg text-sm font-medium transition-colors ${
+                selectedDistance === d
+                  ? theme === 'cute' ? 'bg-pink-100 text-pink-700 border border-pink-200' :
+                    theme === 'tech' ? 'bg-cyan-500/20 text-cyan-300 border border-cyan-500/30' :
+                    theme === 'dark' ? 'bg-gray-600/30 text-gray-200 border border-gray-500/30' :
+                    'bg-gray-100 text-gray-700 border border-gray-300'
+                  : theme === 'cute' ? 'bg-white border border-gray-200 text-gray-600' :
+                    theme === 'tech' ? 'bg-slate-700 border border-slate-600 text-slate-400' :
+                    theme === 'dark' ? 'bg-gray-700 border border-gray-600 text-gray-400' :
+                    'bg-white border border-gray-200 text-gray-600'
+              }`}
+            >
+              {d}m
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {filteredRecords.length === 0 ? (
+        <div className={`text-center py-12 ${getTextSecondaryColor(theme)}`}>
+          <div className={`w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4 ${
+            theme === 'cute' ? 'bg-pink-100' :
+            theme === 'tech' ? 'bg-slate-700' :
+            theme === 'dark' ? 'bg-gray-700' :
+            'bg-gray-100'
+          }`}>
+            <Calendar size={24} className={getPrimaryColor(theme)} />
+          </div>
+          <p>尚無{selectedDistance === 'all' ? '' : `${selectedDistance}米`}歷史紀錄</p>
+        </div>
+      ) : (
+        <div className="space-y-6">
         {Object.entries(groupedRecords).map(([date, dayRecords]) => (
           <div key={date} className="animate-fade-in">
             <div className="flex items-center gap-2 mb-3 px-1">
@@ -141,7 +207,8 @@ const HistoryLog: React.FC<HistoryLogProps> = ({ records, racers, onDeleteRecord
             </div>
           </div>
         ))}
-      </div>
+        </div>
+      )}
 
       {/* Custom Delete Modal */}
       {deleteId && (
