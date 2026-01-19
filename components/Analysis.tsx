@@ -358,7 +358,7 @@ const Analysis: React.FC<AnalysisProps> = ({ records, racers, theme }) => {
             10米每日秒數變化
           </h3>
           <div className="h-64">
-            {chartData10m.length > 1 ? (
+            {chartData10m.length > 0 ? (
                 <ResponsiveContainer width="100%" height="100%">
                 <LineChart data={chartData10m}>
                     <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f0f0f0" />
@@ -409,7 +409,7 @@ const Analysis: React.FC<AnalysisProps> = ({ records, racers, theme }) => {
             30米與10米對照圖
           </h3>
           <div className="h-64">
-            {chartData30mWith10m.length > 1 ? (
+            {chartData30mWith10m.length > 0 ? (
                 <ResponsiveContainer width="100%" height="100%">
                 <LineChart data={chartData30mWith10m}>
                     <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f0f0f0" />
@@ -615,7 +615,7 @@ const Analysis: React.FC<AnalysisProps> = ({ records, racers, theme }) => {
             30米(未登錄10米)每日秒數變化
           </h3>
           <div className="h-64">
-            {chartData30mWithout10m.length > 1 ? (
+            {chartData30mWithout10m.length > 0 ? (
                 <ResponsiveContainer width="100%" height="100%">
                 <LineChart data={chartData30mWithout10m}>
                     <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f0f0f0" />
