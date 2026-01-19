@@ -515,7 +515,17 @@ function App() {
               } />
               數據分析（僅顯示公開資料）
             </h2>
-            <Analysis racers={racers} records={visibleRecords} theme={theme} />
+            <Analysis 
+              racers={racers} 
+              records={selectedRacerId 
+                ? [
+                    ...getCurrentRacerRecords(selectedRacerId), // 選中選手的全部記錄（不管是否公開）
+                    ...visibleRecords.filter(r => r.racerId !== selectedRacerId) // 其他公開選手的記錄
+                  ]
+                : visibleRecords // 沒有選中選手時，只顯示公開資料
+              } 
+              theme={theme} 
+            />
           </div>
         );
     }

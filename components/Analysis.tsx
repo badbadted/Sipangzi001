@@ -60,35 +60,58 @@ const Analysis: React.FC<AnalysisProps> = ({ records, racers, theme }) => {
     const records30m = records.filter(r => r.racerId === selectedRacerId && r.distance === 30);
     const records10m = records.filter(r => r.racerId === selectedRacerId && r.distance === 10);
     
-    // 按日期分組
+    // 如果沒有30米記錄，直接返回空數組
+    if (records30m.length === 0) return [];
+    
+    // 按完整日期（YYYY-MM-DD）分組，這樣可以正確處理跨年的情況
     const dateMap: { [date: string]: { time30m?: number, time10m?: number, timestamp: number } } = {};
     
+    // 處理30米記錄：同一天如果有多筆，取最早的一筆
     records30m.forEach(r => {
-      const dateKey = r.dateStr.slice(5); // MM-DD
+      const dateKey = r.dateStr; // 使用完整日期 YYYY-MM-DD
       if (!dateMap[dateKey]) {
         dateMap[dateKey] = { timestamp: r.timestamp };
-      }
-      dateMap[dateKey].time30m = r.timeSeconds;
-      if (r.timestamp < dateMap[dateKey].timestamp) {
-        dateMap[dateKey].timestamp = r.timestamp;
+        dateMap[dateKey].time30m = r.timeSeconds;
+      } else {
+        // 如果有多筆，保留時間戳最早的
+        if (r.timestamp < dateMap[dateKey].timestamp) {
+          dateMap[dateKey].time30m = r.timeSeconds;
+          dateMap[dateKey].timestamp = r.timestamp;
+        }
       }
     });
     
+    // 處理10米記錄：同一天如果有多筆，找最接近30米記錄時間戳的
     records10m.forEach(r => {
-      const dateKey = r.dateStr.slice(5); // MM-DD
-      if (!dateMap[dateKey]) {
-        dateMap[dateKey] = { timestamp: r.timestamp };
-      }
-      dateMap[dateKey].time10m = r.timeSeconds;
-      if (r.timestamp < dateMap[dateKey].timestamp) {
-        dateMap[dateKey].timestamp = r.timestamp;
+      const dateKey = r.dateStr; // 使用完整日期 YYYY-MM-DD
+      if (dateMap[dateKey] && dateMap[dateKey].time30m !== undefined) {
+        // 如果這天已經有30米記錄
+        const time30m = dateMap[dateKey].timestamp;
+        const timeDiff = Math.abs(r.timestamp - time30m);
+        
+        if (dateMap[dateKey].time10m === undefined) {
+          // 如果還沒有10米數據，直接設置
+          dateMap[dateKey].time10m = r.timeSeconds;
+        } else {
+          // 如果已經有10米數據，需要找最接近30米時間戳的10米記錄
+          // 先找到當前10米記錄對應的原始記錄
+          const current10mRecord = records10m.find(r10 => 
+            r10.dateStr === dateKey && 
+            Math.abs(r10.timestamp - time30m) === Math.abs((dateMap[dateKey].time10m || 0) - time30m)
+          );
+          const existingTimeDiff = current10mRecord ? Math.abs(current10mRecord.timestamp - time30m) : Infinity;
+          
+          if (timeDiff < existingTimeDiff) {
+            dateMap[dateKey].time10m = r.timeSeconds;
+          }
+        }
       }
     });
     
     // 轉換為數組並排序
     return Object.entries(dateMap)
-      .map(([date, data]) => ({
-        date,
+      .map(([dateStr, data]) => ({
+        date: dateStr.slice(5), // MM-DD 用於顯示
         time30m: data.time30m,
         time10m: data.time10m,
         timestamp: data.timestamp
