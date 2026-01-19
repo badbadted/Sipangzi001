@@ -335,6 +335,57 @@ const Analysis: React.FC<AnalysisProps> = ({ records, racers, theme }) => {
         </div>
       )}
 
+      {/* 每日秒數變化（根據選擇的距離顯示） */}
+      {chartData.length > 0 && (
+        <div className={`${currentTheme.styles.cardBg} p-4 rounded-xl shadow-sm border ${currentTheme.colors.border}`}>
+          <h3 className={`text-sm font-bold mb-4 ${getTextColor(theme)}`}>
+            {selectedDistance}米每日秒數變化
+          </h3>
+          <div className="h-64">
+            {chartData.length > 0 ? (
+              <ResponsiveContainer width="100%" height="100%">
+                <LineChart data={chartData}>
+                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f0f0f0" />
+                  <XAxis dataKey="date" tick={{fontSize: 10}} stroke="#9ca3af" />
+                  <YAxis domain={['auto', 'auto']} tick={{fontSize: 10}} stroke="#9ca3af" />
+                  <Tooltip 
+                    contentStyle={{borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)'}}
+                    labelStyle={{color: '#6b7280', fontSize: '12px'}}
+                    formatter={(value: number) => [`${value.toFixed(2)} 秒`, `${selectedDistance}米`]}
+                  />
+                  <Line 
+                    type="monotone" 
+                    dataKey="time" 
+                    stroke={
+                      theme === 'cute' ? '#ec4899' :
+                      theme === 'tech' ? '#06b6d4' :
+                      theme === 'dark' ? '#9ca3af' :
+                      '#4f46e5'
+                    }
+                    strokeWidth={3} 
+                    dot={{ 
+                      fill: theme === 'cute' ? '#ec4899' :
+                            theme === 'tech' ? '#06b6d4' :
+                            theme === 'dark' ? '#9ca3af' :
+                            '#4f46e5',
+                      strokeWidth: 2 
+                    }} 
+                    activeDot={{ r: 6 }}
+                    animationDuration={1000}
+                    name={`${selectedDistance}米`}
+                  />
+                </LineChart>
+              </ResponsiveContainer>
+            ) : (
+              <div className={`h-full flex flex-col items-center justify-center ${getTextSecondaryColor(theme)}`}>
+                <Activity className="mb-2 opacity-50" />
+                <span className="text-sm">資料不足，無法顯示圖表</span>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
       {/* 30米與10米秒數差值分析 */}
       {timeDifferenceData.length > 0 && (
         <div className={`${currentTheme.styles.cardBg} p-4 rounded-xl shadow-sm border ${currentTheme.colors.border}`}>
