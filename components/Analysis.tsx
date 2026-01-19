@@ -471,8 +471,8 @@ const Analysis: React.FC<AnalysisProps> = ({ records, racers, theme }) => {
         </div>
       )}
 
-      {/* 30米與10米秒數差值分析 */}
-      {timeDifferenceData.length > 0 && (
+      {/* 30米與10米秒數差值分析（只在選擇30m且有配對資料時顯示） */}
+      {selectedDistance === 30 && timeDifferenceData.length > 0 && (
         <div className={`${currentTheme.styles.cardBg} p-4 rounded-xl shadow-sm border ${currentTheme.colors.border}`}>
           <h3 className={`text-sm font-bold mb-4 ${getTextColor(theme)}`}>
             30米與10米秒數差值變化（30米 - 10米）
