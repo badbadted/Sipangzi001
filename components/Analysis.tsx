@@ -79,14 +79,6 @@ const Analysis: React.FC<AnalysisProps> = ({ records, racers, theme }) => {
       r => r.racerId === selectedRacerId && r.distance === 10
     );
     
-    // 按日期分組10米記錄（同一天可能有多筆，取第一筆）
-    const records10mByDate: { [date: string]: Record } = {};
-    records10m.forEach(r => {
-      if (!records10mByDate[r.dateStr] || r.timestamp < records10mByDate[r.dateStr].timestamp) {
-        records10mByDate[r.dateStr] = r;
-      }
-    });
-    
     // 配對30米和10米記錄，計算差值
     const differenceData: Array<{
       date: string;
@@ -97,20 +89,50 @@ const Analysis: React.FC<AnalysisProps> = ({ records, racers, theme }) => {
       timestamp: number;
     }> = [];
     
+    // 用於追蹤已配對的10米記錄，避免重複配對
+    const used10mRecords = new Set<string>();
+    
     records30m.forEach(record30m => {
-      const record10m = records10mByDate[record30m.dateStr];
-      if (record10m) {
-        // 找到同一天的10米記錄，計算差值
-        const difference = record30m.timeSeconds - record10m.timeSeconds;
-        differenceData.push({
-          date: record30m.dateStr,
-          dateLabel: record30m.dateStr.slice(5), // MM-DD
-          difference: difference,
-          time30m: record30m.timeSeconds,
-          time10m: record10m.timeSeconds,
-          timestamp: record30m.timestamp
-        });
+      // 在同一天的10米記錄中，找時間戳最接近的（且未被使用過的）
+      const sameDay10m = records10m.filter(
+        r => r.dateStr === record30m.dateStr && !used10mRecords.has(r.id)
+      );
+      
+      // 如果30米記錄沒有對應的10米記錄，跳過（不列入分析表）
+      if (sameDay10m.length === 0) {
+        return; // 跳過這個30米記錄
       }
+      
+      // 找時間戳最接近的10米記錄
+      // 由於10米記錄的timestamp通常是30米記錄的timestamp + 1，所以找最接近的
+      const closest10m = sameDay10m.reduce((closest, current) => {
+        const closestDiff = Math.abs(closest.timestamp - record30m.timestamp);
+        const currentDiff = Math.abs(current.timestamp - record30m.timestamp);
+        return currentDiff < closestDiff ? current : closest;
+      });
+      
+      // 檢查時間戳是否在合理範圍內（30米和10米記錄應該是在同一時間創建的，相差不超過2秒）
+      // 根據代碼邏輯，10米記錄的timestamp通常是30米記錄的timestamp + 1毫秒
+      const timeDiff = Math.abs(closest10m.timestamp - record30m.timestamp);
+      
+      // 如果時間戳差超過2秒，視為不相關的記錄，不列入分析表
+      if (timeDiff > 2000) {
+        return; // 跳過這個30米記錄（沒有配對到合適的10米記錄）
+      }
+      
+      // 找到配對的10米記錄，計算差值並加入分析表
+      const difference = record30m.timeSeconds - closest10m.timeSeconds;
+      differenceData.push({
+        date: record30m.dateStr,
+        dateLabel: record30m.dateStr.slice(5), // MM-DD
+        difference: difference,
+        time30m: record30m.timeSeconds,
+        time10m: closest10m.timeSeconds,
+        timestamp: record30m.timestamp
+      });
+      
+      // 標記這個10米記錄已被使用
+      used10mRecords.add(closest10m.id);
     });
     
     // 按時間戳排序
