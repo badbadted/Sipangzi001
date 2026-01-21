@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useMemo, useState, useCallback } from 'react';
 import { Calendar, Trash2, AlertCircle } from 'lucide-react';
 import { Record, GroupedRecords, Racer, Distance } from '../types';
 import { Theme, themes } from '../themes';
@@ -10,6 +10,76 @@ interface HistoryLogProps {
   onDeleteRecord?: (id: string) => void;
   theme: Theme;
 }
+
+interface RecordItemProps {
+  record: Record;
+  racer: Racer | undefined;
+  theme: Theme;
+  onDelete?: (id: string) => void;
+}
+
+// 優化：使用 React.memo 避免不必要的重繪
+const RecordItem = React.memo<RecordItemProps>(({ record, racer, theme, onDelete }) => {
+  const currentTheme = themes[theme] || themes['light'];
+  const handleDeleteClick = useCallback((e: React.MouseEvent) => {
+    e.stopPropagation();
+    onDelete?.(record.id);
+  }, [record.id, onDelete]);
+
+  return (
+    <div className={`${currentTheme.styles.cardBg} p-3 rounded-xl shadow-sm border ${currentTheme.colors.border} flex items-center justify-between group relative overflow-hidden`}>
+      <div className="flex items-center gap-3 relative z-0">
+        {racer?.avatar ? (
+          <img 
+            src={racer.avatar} 
+            alt={racer.name}
+            className="w-10 h-10 rounded-full object-cover border border-gray-200"
+          />
+        ) : (
+          <div className={`w-10 h-10 rounded-full flex items-center justify-center text-white font-bold text-sm ${racer?.avatarColor || (
+            theme === 'cute' ? 'bg-gray-400' :
+            theme === 'tech' ? 'bg-slate-600' :
+            theme === 'dark' ? 'bg-gray-600' :
+            'bg-gray-300'
+          )}`}>
+            {racer?.name[0] || '?'}
+          </div>
+        )}
+        <div>
+          <p className={`font-bold ${getTextColor(theme)}`}>
+            {racer?.name || '未知選手'}
+          </p>
+          <span className={`text-xs px-2 py-0.5 rounded font-medium ${
+            theme === 'cute' ? 'bg-gray-100 text-gray-500' :
+            theme === 'tech' ? 'bg-slate-700 text-slate-400' :
+            theme === 'dark' ? 'bg-gray-700 text-gray-400' :
+            'bg-gray-100 text-gray-500'
+          }`}>
+            {record.distance} 米
+          </span>
+        </div>
+      </div>
+      <div className="flex items-center gap-3 relative z-0">
+        <span className={`text-xl font-mono font-bold ${getTextColor(theme)}`}>
+          {record.timeSeconds.toFixed(2)}<span className={`text-xs ml-1 ${getTextSecondaryColor(theme)}`}>s</span>
+        </span>
+        {onDelete && (
+          <button
+            onClick={handleDeleteClick}
+            className="w-10 h-10 flex items-center justify-center text-gray-400 hover:text-red-500 hover:bg-red-50 active:bg-red-100 rounded-full transition-all cursor-pointer relative z-10"
+            title="刪除"
+            aria-label="刪除紀錄"
+            type="button"
+          >
+            <Trash2 size={18} />
+          </button>
+        )}
+      </div>
+    </div>
+  );
+});
+
+RecordItem.displayName = 'RecordItem';
 
 const HistoryLog: React.FC<HistoryLogProps> = ({ records, racers, onDeleteRecord, theme }) => {
   const currentTheme = themes[theme] || themes['light'];
@@ -42,7 +112,12 @@ const HistoryLog: React.FC<HistoryLogProps> = ({ records, racers, onDeleteRecord
     );
   }, [filteredRecords]);
 
-  const getRacer = (id: string) => racers.find(r => r.id === id);
+  // 優化：建立 racer lookup map 以提升效能
+  const racerMap = useMemo(() => {
+    return new Map(racers.map(r => [r.id, r]));
+  }, [racers]);
+
+  const getRacer = useCallback((id: string) => racerMap.get(id), [racerMap]);
 
   const confirmDelete = () => {
     if (deleteId && onDeleteRecord) {
@@ -147,63 +222,15 @@ const HistoryLog: React.FC<HistoryLogProps> = ({ records, racers, onDeleteRecord
             </div>
             
             <div className="space-y-3">
-              {dayRecords.map(record => {
-                const racer = getRacer(record.racerId);
-                return (
-                  <div key={record.id} className={`${currentTheme.styles.cardBg} p-3 rounded-xl shadow-sm border ${currentTheme.colors.border} flex items-center justify-between group relative overflow-hidden`}>
-                    <div className="flex items-center gap-3 relative z-0">
-                      {racer?.avatar ? (
-                        <img 
-                          src={racer.avatar} 
-                          alt={racer.name}
-                          className="w-10 h-10 rounded-full object-cover border border-gray-200"
-                        />
-                      ) : (
-                        <div className={`w-10 h-10 rounded-full flex items-center justify-center text-white font-bold text-sm ${racer?.avatarColor || (
-                          theme === 'cute' ? 'bg-gray-400' :
-                          theme === 'tech' ? 'bg-slate-600' :
-                          theme === 'dark' ? 'bg-gray-600' :
-                          'bg-gray-300'
-                        )}`}>
-                          {racer?.name[0] || '?'}
-                        </div>
-                      )}
-                      <div>
-                        <p className={`font-bold ${getTextColor(theme)}`}>
-                          {racer?.name || '未知選手'}
-                        </p>
-                        <span className={`text-xs px-2 py-0.5 rounded font-medium ${
-                          theme === 'cute' ? 'bg-gray-100 text-gray-500' :
-                          theme === 'tech' ? 'bg-slate-700 text-slate-400' :
-                          theme === 'dark' ? 'bg-gray-700 text-gray-400' :
-                          'bg-gray-100 text-gray-500'
-                        }`}>
-                          {record.distance} 米
-                        </span>
-                      </div>
-                    </div>
-                    <div className="flex items-center gap-3 relative z-0">
-                      <span className={`text-xl font-mono font-bold ${getTextColor(theme)}`}>
-                        {record.timeSeconds.toFixed(2)}<span className={`text-xs ml-1 ${getTextSecondaryColor(theme)}`}>s</span>
-                      </span>
-                      {onDeleteRecord && (
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            setDeleteId(record.id);
-                          }}
-                          className="w-10 h-10 flex items-center justify-center text-gray-400 hover:text-red-500 hover:bg-red-50 active:bg-red-100 rounded-full transition-all cursor-pointer relative z-10"
-                          title="刪除"
-                          aria-label="刪除紀錄"
-                          type="button"
-                        >
-                          <Trash2 size={18} />
-                        </button>
-                      )}
-                    </div>
-                  </div>
-                );
-              })}
+              {dayRecords.map(record => (
+                <RecordItem
+                  key={record.id}
+                  record={record}
+                  racer={getRacer(record.racerId)}
+                  theme={theme}
+                  onDelete={onDeleteRecord ? (id) => setDeleteId(id) : undefined}
+                />
+              ))}
             </div>
           </div>
         ))}

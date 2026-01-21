@@ -1,6 +1,5 @@
-import { initializeApp } from "firebase/app";
-// @ts-ignore
-import { getDatabase } from "firebase/database";
+import { initializeApp, FirebaseApp } from "firebase/app";
+import { getDatabase, Database } from "firebase/database";
 
 // 使用 Vite 標準方式讀取環境變數
 const getEnvVar = (key: string): string => {
@@ -22,8 +21,8 @@ const firebaseConfig = {
 };
 
 // Initialize Firebase
-let app;
-let db;
+let app: FirebaseApp | undefined;
+let db: Database | undefined;
 let firebaseInitialized = false;
 
 try {

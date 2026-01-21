@@ -1,29 +1,22 @@
-import React, { useState, useEffect } from 'react';
-import { Trophy, Timer, History, BarChart2, Users } from 'lucide-react';
-import { db, firebaseInitialized } from './firebase';
-// @ts-ignore
-import { ref, onValue, push, set, remove } from 'firebase/database';
+import React, { useState, useEffect, useMemo } from 'react';
+import { Trophy, Timer, History, BarChart2, Users, Loader2 } from 'lucide-react';
+import { firebaseInitialized } from './firebase';
 import RacerList from './components/RacerList';
 import RacerManagement from './components/RacerManagement';
 import RecordForm from './components/RecordForm';
 import HistoryLog from './components/HistoryLog';
 import Analysis from './components/Analysis';
 import ThemeSwitcher from './components/ThemeSwitcher';
-import { Racer, Record, Distance } from './types';
+import { Distance } from './types';
 import { Theme, themes } from './themes';
-
-// Helper to get local date string YYYY-MM-DD
-const getLocalDateStr = () => {
-  const now = new Date();
-  const offset = now.getTimezoneOffset() * 60000;
-  const localDate = new Date(now.getTime() - offset);
-  return localDate.toISOString().split('T')[0];
-};
+import { useRacers } from './hooks/useRacers';
+import { useRecords } from './hooks/useRecords';
+import { useMyRacers } from './hooks/useMyRacers';
+import { useVisibleRecords } from './hooks/useVisibleRecords';
+import { getLocalDateStr } from './utils/dateUtils';
 
 function App() {
   const [activeTab, setActiveTab] = useState<'record' | 'history' | 'analysis' | 'racers'>('record');
-  const [racers, setRacers] = useState<Racer[]>([]);
-  const [records, setRecords] = useState<Record[]>([]);
   const [selectedRacerId, setSelectedRacerId] = useState<string | null>(null);
   const [theme, setTheme] = useState<Theme>(() => {
     // 從 localStorage 讀取主題，預設為白色系
@@ -43,6 +36,12 @@ function App() {
     }
   });
 
+  // 使用 Custom Hooks
+  const { racers, isLoading: isLoadingRacers, addRacer: addRacerHook, updateRacer, deleteRacer: deleteRacerHook } = useRacers();
+  const { records, isLoading: isLoadingRecords, addRecord: addRecordHook, deleteRecord, deleteRecordsByRacerId } = useRecords(false);
+  const { myRacerIds, addToMyRacers } = useMyRacers();
+  const visibleRecords = useVisibleRecords(records, racers, myRacerIds);
+
   // 保存主題到 localStorage
   useEffect(() => {
     localStorage.setItem('app-theme', theme);
@@ -51,82 +50,6 @@ function App() {
 
   // 確保主題配置存在，如果不存在則使用預設主題
   const currentTheme = themes[theme] || themes['light'];
-
-  // Sync Racers from Firebase
-  useEffect(() => {
-    if (!firebaseInitialized || !db) {
-      console.warn('Firebase 未初始化，無法同步選手數據');
-      return;
-    }
-    
-    try {
-      const racersRef = ref(db, 'racers');
-      const unsubscribe = onValue(racersRef, (snapshot: any) => {
-          try {
-            const data = snapshot.val();
-            if (data) {
-              // Convert object to array and filter invalid entries
-              const racerList = Object.values(data).filter(
-                (r): r is Racer => 
-                  r && 
-                  typeof (r as Racer).id === 'string' &&
-                  typeof (r as Racer).name === 'string'
-              ) as Racer[];
-              setRacers(racerList);
-            } else {
-              setRacers([]);
-            }
-          } catch (error) {
-            console.error('處理選手數據時發生錯誤：', error);
-            setRacers([]);
-          }
-      });
-
-      return () => unsubscribe();
-    } catch (error) {
-      console.error('設定選手監聽時發生錯誤：', error);
-    }
-  }, []);
-
-  // Sync Records from Firebase
-  useEffect(() => {
-    if (!firebaseInitialized || !db) {
-      console.warn('Firebase 未初始化，無法同步紀錄數據');
-      return;
-    }
-    
-    try {
-      const recordsRef = ref(db, 'records');
-      const unsubscribe = onValue(recordsRef, (snapshot: any) => {
-          try {
-            const data = snapshot.val();
-            if (data) {
-              const recordList = Object.values(data) as Record[];
-              // 過濾掉無效的紀錄並排序
-              const validRecords = recordList.filter(
-                (r): r is Record => 
-                  r && 
-                  typeof r.id === 'string' &&
-                  typeof r.timestamp === 'number' &&
-                  !isNaN(r.timestamp)
-              );
-              // Sort by timestamp desc (newest first)
-              validRecords.sort((a, b) => b.timestamp - a.timestamp);
-              setRecords(validRecords);
-            } else {
-              setRecords([]);
-            }
-          } catch (error) {
-            console.error('處理紀錄數據時發生錯誤：', error);
-            setRecords([]);
-          }
-      });
-
-      return () => unsubscribe();
-    } catch (error) {
-      console.error('設定紀錄監聽時發生錯誤：', error);
-    }
-  }, []);
 
   // Set default racer selection logic
   useEffect(() => {
@@ -140,232 +63,30 @@ function App() {
     }
   }, [racers, selectedRacerId]);
 
-  // 獲取用戶創建的選手ID列表（從 localStorage）
-  const getMyRacerIds = (): string[] => {
-    try {
-      const stored = localStorage.getItem('my_racer_ids');
-      return stored ? JSON.parse(stored) : [];
-    } catch {
-      return [];
-    }
-  };
-
-  // 將選手ID添加到用戶創建的列表中
-  const addToMyRacers = (racerId: string) => {
-    const myRacers = getMyRacerIds();
-    if (!myRacers.includes(racerId)) {
-      myRacers.push(racerId);
-      localStorage.setItem('my_racer_ids', JSON.stringify(myRacers));
-    }
-  };
-
+  // 包裝 addRacer 以處理 myRacers 邏輯
   const addRacer = (name: string, color: string, avatar?: string, password?: string, requirePassword?: boolean, isPublic?: boolean) => {
-    if (!firebaseInitialized || !db) {
-      alert('Firebase 未初始化，無法新增選手。請檢查環境變數設定。');
-      return;
-    }
-    
-    try {
-      const newRacerRef = push(ref(db, 'racers'));
-      if (!newRacerRef.key) {
-        console.error('無法新增選手：Firebase 未返回 key');
-        return;
-      }
-      
-      const newRacer: Racer = {
-        id: newRacerRef.key,
-        name,
-        avatarColor: color,
-        ...(avatar && { avatar }), // 只有當 avatar 存在時才包含
-        createdAt: Date.now(),
-        ...(password && { password }),
-        ...(requirePassword !== undefined && { requirePassword }),
-        ...(isPublic !== undefined && { isPublic })
-      };
-      // Save to Firebase
-      set(newRacerRef, newRacer).catch((error) => {
-        console.error('新增選手失敗：', error);
-        alert('新增選手失敗，請檢查網路連線或 Firebase 設定');
-      });
-      
-      // 將此選手添加到用戶創建的列表中
-      addToMyRacers(newRacer.id);
-      
-      setSelectedRacerId(newRacer.id);
-    } catch (error) {
-      console.error('新增選手時發生錯誤：', error);
-      alert('新增選手時發生錯誤，請稍後再試');
+    const newRacerId = addRacerHook(name, color, avatar, password, requirePassword, isPublic);
+    if (newRacerId) {
+      addToMyRacers(newRacerId);
+      setSelectedRacerId(newRacerId);
     }
   };
 
-  const updateRacer = (id: string, name: string, color: string, avatar?: string, password?: string, requirePassword?: boolean, isPublic?: boolean) => {
-    if (!firebaseInitialized || !db) {
-      alert('Firebase 未初始化，無法更新選手。請檢查環境變數設定。');
-      return;
-    }
-    
-    try {
-      const existingRacer = racers.find(r => r.id === id);
-      if (!existingRacer) {
-        console.error('找不到要更新的選手');
-        return;
-      }
-
-      const racerRef = ref(db, `racers/${id}`);
-      // 構建更新物件，確保不包含 undefined
-      const updatedRacer: Racer = {
-        id: existingRacer.id,
-        name,
-        avatarColor: color,
-        createdAt: existingRacer.createdAt,
-        // 只有當 avatar 不是 undefined 時才包含
-        ...(avatar !== undefined && { avatar: avatar || null }),
-        ...(password !== undefined && { password: password || null }),
-        ...(requirePassword !== undefined && { requirePassword }),
-        ...(isPublic !== undefined && { isPublic })
-      };
-      
-      set(racerRef, updatedRacer).catch((error) => {
-        console.error('更新選手失敗：', error);
-        alert('更新選手失敗，請檢查網路連線或 Firebase 設定');
-      });
-    } catch (error) {
-      console.error('更新選手時發生錯誤：', error);
-      alert('更新選手時發生錯誤，請稍後再試');
-    }
-  };
-
+  // 包裝 deleteRacer 以處理相關紀錄刪除
   const deleteRacer = (id: string) => {
-    if (!firebaseInitialized || !db) {
-      alert('Firebase 未初始化，無法刪除選手。請檢查環境變數設定。');
-      return;
-    }
-    
-    if (confirm('確定要刪除此選手嗎？相關紀錄也會一併刪除。')) {
-      try {
-        // Remove racer
-        remove(ref(db, `racers/${id}`)).catch((error) => {
-          console.error('刪除選手失敗：', error);
-          alert('刪除選手失敗，請檢查網路連線或 Firebase 設定');
-        });
-        
-        // Remove associated records
-        // Note: In a production app with huge data, this should be done via a cloud function.
-        // For this scale, client-side iteration is fine.
-        records.forEach(r => {
-          if (r.racerId === id) {
-            remove(ref(db, `records/${r.id}`)).catch((error) => {
-              console.error('刪除紀錄失敗：', error);
-            });
-          }
-        });
-
-        if (selectedRacerId === id) {
-            setSelectedRacerId(null);
-        }
-      } catch (error) {
-        console.error('刪除選手時發生錯誤：', error);
-        alert('刪除選手時發生錯誤，請稍後再試');
-      }
+    deleteRacerHook(id, deleteRecordsByRacerId);
+    if (selectedRacerId === id) {
+      setSelectedRacerId(null);
     }
   };
 
+  // 包裝 addRecord 以使用 selectedRacerId
   const addRecord = (distance: Distance, timeSeconds: number, tenMeterTime?: number) => {
-    if (!firebaseInitialized || !db) {
-      alert('Firebase 未初始化，無法新增紀錄。請檢查環境變數設定。');
-      return;
-    }
-    
     if (!selectedRacerId) {
       console.warn('無法新增紀錄：未選擇選手');
       return;
     }
-    
-    try {
-      const dateStr = getLocalDateStr();
-      const timestamp = Date.now();
-      
-      // 創建主要距離的紀錄
-      const newRecordRef = push(ref(db, 'records'));
-      if (!newRecordRef.key) {
-        console.error('無法新增紀錄：Firebase 未返回 key');
-        return;
-      }
-      
-      const newRecord: Record = {
-        id: newRecordRef.key,
-        racerId: selectedRacerId,
-        distance,
-        timeSeconds,
-        timestamp,
-        dateStr
-      };
-      
-      // 儲存主要紀錄
-      set(newRecordRef, newRecord).catch((error) => {
-        console.error('新增紀錄失敗：', error);
-        alert('新增紀錄失敗，請檢查網路連線或 Firebase 設定');
-      });
-      
-      // 如果有提供 10 米時間，同時創建 10 米紀錄
-      if (tenMeterTime !== undefined && tenMeterTime > 0) {
-        const tenMeterRecordRef = push(ref(db, 'records'));
-        if (tenMeterRecordRef.key) {
-          const tenMeterRecord: Record = {
-            id: tenMeterRecordRef.key,
-            racerId: selectedRacerId,
-            distance: 10,
-            timeSeconds: tenMeterTime,
-            timestamp: timestamp + 1, // 稍微延後時間戳，確保排序正確
-            dateStr
-          };
-          
-          set(tenMeterRecordRef, tenMeterRecord).catch((error) => {
-            console.error('新增 10 米紀錄失敗：', error);
-            // 不顯示錯誤提示，因為主要紀錄已經成功
-          });
-        }
-      }
-      
-      // Optional: Visual feedback or vibration
-      if (navigator.vibrate) navigator.vibrate(50);
-    } catch (error) {
-      console.error('新增紀錄時發生錯誤：', error);
-      alert('新增紀錄時發生錯誤，請稍後再試');
-    }
-  };
-
-  const deleteRecord = (id: string) => {
-    if (!firebaseInitialized || !db) {
-      alert('Firebase 未初始化，無法刪除紀錄。請檢查環境變數設定。');
-      return;
-    }
-    
-    try {
-      remove(ref(db, `records/${id}`)).catch((error) => {
-        console.error('刪除紀錄失敗：', error);
-        alert('刪除紀錄失敗，請檢查網路連線或 Firebase 設定');
-      });
-    } catch (error) {
-      console.error('刪除紀錄時發生錯誤：', error);
-      alert('刪除紀錄時發生錯誤，請稍後再試');
-    }
-  };
-
-  // 根據公開設定過濾記錄
-  // 1. 如果選手的 isPublic 為 true，所有人都可以看到
-  // 2. 如果選手的 isPublic 為 false 或 undefined，只有設定者（創建者）可以看到
-  const getVisibleRecords = () => {
-    const myRacerIds = getMyRacerIds();
-    return records.filter(record => {
-      const racer = racers.find(r => r.id === record.racerId);
-      // 如果找不到選手，不顯示
-      if (!racer) return false;
-      // 如果選手的 isPublic 為 true，顯示記錄（公開）
-      if (racer.isPublic === true) return true;
-      // 如果選手的 isPublic 為 false 或 undefined，只有創建者可以看到
-      return myRacerIds.includes(racer.id);
-    });
+    addRecordHook(selectedRacerId, distance, timeSeconds, tenMeterTime);
   };
 
   // 獲取當前選手的記錄（只要能選到該選手，就能看到該選手的全部資料）
@@ -376,8 +97,6 @@ function App() {
   };
 
   const renderContent = () => {
-    const visibleRecords = getVisibleRecords();
-    
     switch (activeTab) {
       case 'record':
         return (
@@ -592,7 +311,25 @@ function App() {
 
       {/* Main Content */}
       <main className="p-6">
-        {renderContent()}
+        {(isLoadingRacers || isLoadingRecords) && (
+          <div className="flex flex-col items-center justify-center py-12">
+            <Loader2 className={`w-8 h-8 animate-spin ${
+              theme === 'cute' ? 'text-pink-500' :
+              theme === 'tech' ? 'text-cyan-400' :
+              theme === 'dark' ? 'text-gray-400' :
+              'text-gray-600'
+            }`} />
+            <p className={`mt-4 text-sm ${
+              theme === 'cute' ? 'text-gray-600' :
+              theme === 'tech' ? 'text-slate-400' :
+              theme === 'dark' ? 'text-gray-400' :
+              'text-gray-600'
+            }`}>
+              {isLoadingRacers ? '載入選手資料中...' : '載入紀錄資料中...'}
+            </p>
+          </div>
+        )}
+        {!isLoadingRacers && !isLoadingRecords && renderContent()}
       </main>
 
       {/* Bottom Navigation */}
