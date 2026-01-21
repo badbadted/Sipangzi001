@@ -24,6 +24,18 @@ export interface GroupedRecords {
   [date: string]: Record[];
 }
 
+export type TrainingType = 'sprint' | 'endurance' | 'start_practice';
+
+export interface TrainingSession {
+  id: string;
+  racerId: string;
+  type: TrainingType;
+  durationSeconds: number;
+  note?: string;
+  timestamp: number;
+  dateStr: string;
+}
+
 export const AVATAR_COLORS = [
   'bg-red-500', 'bg-orange-500', 'bg-amber-500', 
   'bg-green-500', 'bg-emerald-500', 'bg-teal-500', 

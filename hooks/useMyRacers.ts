@@ -2,10 +2,10 @@ import { useState, useCallback } from 'react';
 
 const MY_RACER_IDS_KEY = 'my_racer_ids';
 
-// 獲取用戶創建的選手ID列表（從 localStorage）
+// 獲取用戶創建的選手ID列表（從 sessionStorage，每個分頁獨立）
 const getMyRacerIdsFromStorage = (): string[] => {
   try {
-    const stored = localStorage.getItem(MY_RACER_IDS_KEY);
+    const stored = sessionStorage.getItem(MY_RACER_IDS_KEY);
     return stored ? JSON.parse(stored) : [];
   } catch {
     return [];
@@ -20,7 +20,7 @@ export const useMyRacers = () => {
     const currentIds = getMyRacerIdsFromStorage();
     if (!currentIds.includes(racerId)) {
       const updatedIds = [...currentIds, racerId];
-      localStorage.setItem(MY_RACER_IDS_KEY, JSON.stringify(updatedIds));
+      sessionStorage.setItem(MY_RACER_IDS_KEY, JSON.stringify(updatedIds));
       setMyRacerIds(updatedIds);
     }
   }, []);

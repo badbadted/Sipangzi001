@@ -1,11 +1,13 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { Trophy, Timer, History, BarChart2, Users, Loader2 } from 'lucide-react';
+import { Trophy, Timer, History, BarChart2, Users, Loader2, Zap } from 'lucide-react';
 import { firebaseInitialized } from './firebase';
 import RacerList from './components/RacerList';
 import RacerManagement from './components/RacerManagement';
 import RecordForm from './components/RecordForm';
 import HistoryLog from './components/HistoryLog';
 import Analysis from './components/Analysis';
+import TrainingTimer from './components/TrainingTimer';
+import TrainingLog from './components/TrainingLog';
 import ThemeSwitcher from './components/ThemeSwitcher';
 import { Distance } from './types';
 import { Theme, themes } from './themes';
@@ -13,11 +15,21 @@ import { useRacers } from './hooks/useRacers';
 import { useRecords } from './hooks/useRecords';
 import { useMyRacers } from './hooks/useMyRacers';
 import { useVisibleRecords } from './hooks/useVisibleRecords';
+import { useTrainingSessions } from './hooks/useTrainingSessions';
+import { useVisibleSessions } from './hooks/useVisibleSessions';
 import { getLocalDateStr } from './utils/dateUtils';
 
 function App() {
-  const [activeTab, setActiveTab] = useState<'record' | 'history' | 'analysis' | 'racers'>('record');
-  const [selectedRacerId, setSelectedRacerId] = useState<string | null>(null);
+  const [activeTab, setActiveTab] = useState<'record' | 'history' | 'analysis' | 'racers' | 'training'>('record');
+  const [selectedRacerId, setSelectedRacerId] = useState<string | null>(() => {
+    // 優先從 URL 參數讀取（可分享連結），否則從 sessionStorage（每個分頁獨立）
+    const urlParams = new URLSearchParams(window.location.search);
+    const racerIdFromUrl = urlParams.get('racer');
+    if (racerIdFromUrl) {
+      return racerIdFromUrl;
+    }
+    return sessionStorage.getItem('selected_racer_id');
+  });
   const [theme, setTheme] = useState<Theme>(() => {
     // 從 localStorage 讀取主題，預設為白色系
     try {
@@ -41,6 +53,8 @@ function App() {
   const { records, isLoading: isLoadingRecords, addRecord: addRecordHook, deleteRecord, deleteRecordsByRacerId } = useRecords(false);
   const { myRacerIds, addToMyRacers } = useMyRacers();
   const visibleRecords = useVisibleRecords(records, racers, myRacerIds);
+  const { sessions: trainingSessions, addSession: addTrainingSession, deleteSession: deleteTrainingSession } = useTrainingSessions();
+  const visibleSessions = useVisibleSessions(trainingSessions, racers, myRacerIds);
 
   // 保存主題到 localStorage
   useEffect(() => {
@@ -51,17 +65,56 @@ function App() {
   // 確保主題配置存在，如果不存在則使用預設主題
   const currentTheme = themes[theme] || themes['light'];
 
+  // Save selected racer to sessionStorage (每個分頁獨立) 並更新 URL 參數
+  useEffect(() => {
+    const url = new URL(window.location.href);
+    if (selectedRacerId) {
+      sessionStorage.setItem('selected_racer_id', selectedRacerId);
+      // 同時更新 URL（方便分享連結）
+      url.searchParams.set('racer', selectedRacerId);
+      window.history.replaceState({}, '', url.toString());
+    } else {
+      sessionStorage.removeItem('selected_racer_id');
+      // 清除 URL 參數
+      url.searchParams.delete('racer');
+      window.history.replaceState({}, '', url.toString());
+    }
+  }, [selectedRacerId]);
+
   // Set default racer selection logic
   useEffect(() => {
-    if (racers.length > 0) {
-      // If no racer selected, or selected racer no longer exists
+    // 只有在 racers 載入完成後才處理選擇邏輯
+    if (!isLoadingRacers && racers.length > 0) {
+      // 如果沒有選中選手，或選中的選手不存在於列表中
       if (!selectedRacerId || !racers.find(r => r.id === selectedRacerId)) {
-        setSelectedRacerId(racers[0].id);
+        // 嘗試從 sessionStorage 恢復（以防初始化時未正確讀取）
+        const savedRacerId = sessionStorage.getItem('selected_racer_id');
+        // 也檢查 URL 參數
+        const urlParams = new URLSearchParams(window.location.search);
+        const racerIdFromUrl = urlParams.get('racer');
+        
+        // 優先使用 URL 參數，然後是 sessionStorage
+        const candidateId = racerIdFromUrl || savedRacerId;
+        
+        if (candidateId && racers.find(r => r.id === candidateId)) {
+          // 如果找到有效的候選 ID，使用它
+          setSelectedRacerId(candidateId);
+        } else {
+          // 否則使用第一個選手
+          setSelectedRacerId(racers[0].id);
+        }
       }
-    } else {
+      // 如果 selectedRacerId 存在且有效，不需要做任何事（保留它）
+    } else if (!isLoadingRacers && racers.length === 0) {
+      // racers 載入完成但為空，清除選擇
       setSelectedRacerId(null);
+      sessionStorage.removeItem('selected_racer_id');
+      // 清除 URL 參數
+      const url = new URL(window.location.href);
+      url.searchParams.delete('racer');
+      window.history.replaceState({}, '', url.toString());
     }
-  }, [racers, selectedRacerId]);
+  }, [racers, selectedRacerId, isLoadingRacers]);
 
   // 包裝 addRacer 以處理 myRacers 邏輯
   const addRacer = (name: string, color: string, avatar?: string, password?: string, requirePassword?: boolean, isPublic?: boolean) => {
@@ -101,9 +154,9 @@ function App() {
       case 'record':
         return (
           <div className="animate-fade-in-up">
-            <RacerList 
-              racers={racers} 
-              selectedRacerId={selectedRacerId} 
+            <RacerList
+              racers={racers}
+              selectedRacerId={selectedRacerId}
               onSelectRacer={setSelectedRacerId}
               onAddRacer={addRacer}
               onDeleteRacer={deleteRacer}
@@ -113,59 +166,56 @@ function App() {
             {racers.length > 0 && selectedRacerId ? (
               <RecordForm racerId={selectedRacerId} onAddRecord={addRecord} theme={theme} />
             ) : null}
-            
+
             {/* 顯示當前選手的記錄（只要能選到該選手，就能看到該選手的全部資料） */}
             {selectedRacerId && (
               <div className="mt-8">
                 <div className="flex items-center justify-between mb-4">
-                  <h3 className={`font-bold ${
-                    theme === 'cute' ? 'text-gray-700' :
+                  <h3 className={`font-bold ${theme === 'cute' ? 'text-gray-700' :
                     theme === 'tech' ? 'text-slate-300' :
-                    theme === 'dark' ? 'text-gray-200' :
-                    'text-gray-800'
-                  }`}>
+                      theme === 'dark' ? 'text-gray-200' :
+                        'text-gray-800'
+                    }`}>
                     {(() => {
                       const racer = racers.find(r => r.id === selectedRacerId);
                       return `${racer?.name || '選手'} 的今日紀錄`;
                     })()}
                   </h3>
-                  <button 
+                  <button
                     onClick={() => setActiveTab('history')}
-                    className={`text-xs font-medium hover:underline ${
-                      theme === 'cute' ? 'text-pink-600 hover:text-pink-700' :
+                    className={`text-xs font-medium hover:underline ${theme === 'cute' ? 'text-pink-600 hover:text-pink-700' :
                       theme === 'tech' ? 'text-cyan-400 hover:text-cyan-300' :
-                      theme === 'dark' ? 'text-gray-300 hover:text-gray-100' :
-                      'text-gray-700 hover:text-gray-900'
-                    }`}
+                        theme === 'dark' ? 'text-gray-300 hover:text-gray-100' :
+                          'text-gray-700 hover:text-gray-900'
+                      }`}
                   >
                     查看全部
                   </button>
                 </div>
-                <HistoryLog 
-                  racers={racers} 
-                  records={getCurrentRacerRecords(selectedRacerId).filter(r => r.dateStr === getLocalDateStr())} 
+                <HistoryLog
+                  racers={racers}
+                  records={getCurrentRacerRecords(selectedRacerId).filter(r => r.dateStr === getLocalDateStr())}
                   onDeleteRecord={deleteRecord}
                   theme={theme}
                 />
               </div>
             )}
-            
+
             {/* 顯示所有公開選手的今日紀錄 */}
             {visibleRecords.filter(r => r.dateStr === getLocalDateStr() && r.racerId !== selectedRacerId).length > 0 && (
               <div className="mt-8">
                 <div className="flex items-center justify-between mb-4">
-                  <h3 className={`font-bold ${
-                    theme === 'cute' ? 'text-gray-700' :
+                  <h3 className={`font-bold ${theme === 'cute' ? 'text-gray-700' :
                     theme === 'tech' ? 'text-slate-300' :
-                    theme === 'dark' ? 'text-gray-200' :
-                    'text-gray-800'
-                  }`}>
+                      theme === 'dark' ? 'text-gray-200' :
+                        'text-gray-800'
+                    }`}>
                     其他選手的今日紀錄（公開資料）
                   </h3>
                 </div>
-                <HistoryLog 
-                  racers={racers} 
-                  records={visibleRecords.filter(r => r.dateStr === getLocalDateStr() && r.racerId !== selectedRacerId)} 
+                <HistoryLog
+                  racers={racers}
+                  records={visibleRecords.filter(r => r.dateStr === getLocalDateStr() && r.racerId !== selectedRacerId)}
                   onDeleteRecord={deleteRecord}
                   theme={theme}
                 />
@@ -175,40 +225,84 @@ function App() {
         );
       case 'history':
         // 如果有選中的選手，顯示該選手的全部記錄 + 其他公開選手的記錄
-        const historyRecords = selectedRacerId 
+        const historyRecords = selectedRacerId
           ? [
-              ...getCurrentRacerRecords(selectedRacerId), // 選中選手的全部記錄（不管是否公開）
-              ...visibleRecords.filter(r => r.racerId !== selectedRacerId) // 其他公開選手的記錄
-            ]
+            ...getCurrentRacerRecords(selectedRacerId), // 選中選手的全部記錄（不管是否公開）
+            ...visibleRecords.filter(r => r.racerId !== selectedRacerId) // 其他公開選手的記錄
+          ]
           : visibleRecords; // 沒有選中選手時，只顯示公開資料
-        
+
         return (
           <div className="animate-fade-in">
-            <h2 className={`text-xl font-bold mb-6 flex items-center gap-2 ${
-              theme === 'cute' ? 'text-gray-800' :
+            <h2 className={`text-xl font-bold mb-6 flex items-center gap-2 ${theme === 'cute' ? 'text-gray-800' :
               theme === 'tech' ? 'text-slate-200' :
-              theme === 'dark' ? 'text-gray-200' :
-              'text-gray-900'
-            }`}>
+                theme === 'dark' ? 'text-gray-200' :
+                  'text-gray-900'
+              }`}>
               <History className={
                 theme === 'cute' ? 'text-pink-500' :
-                theme === 'tech' ? 'text-cyan-400' :
-                theme === 'dark' ? 'text-gray-400' :
-                'text-gray-700'
+                  theme === 'tech' ? 'text-cyan-400' :
+                    theme === 'dark' ? 'text-gray-400' :
+                      'text-gray-700'
               } />
-              {selectedRacerId 
+              {selectedRacerId
                 ? '歷史紀錄（包含選中選手的全部資料）'
                 : '歷史紀錄（僅顯示公開資料）'}
             </h2>
             <HistoryLog racers={racers} records={historyRecords} onDeleteRecord={deleteRecord} theme={theme} />
           </div>
         );
+      case 'training':
+        // Using outer definition
+        const currentRacerSessions = selectedRacerId
+          ? visibleSessions.filter(s => s.racerId === selectedRacerId)
+          : [];
+
+        return (
+          <div className="animate-fade-in-up">
+            <RacerList
+              racers={racers}
+              selectedRacerId={selectedRacerId}
+              onSelectRacer={setSelectedRacerId}
+              onAddRacer={addRacer}
+              onDeleteRacer={deleteRacer}
+              onNavigateToRacers={() => setActiveTab('racers')}
+              theme={theme}
+            />
+
+            <TrainingTimer
+              racerId={selectedRacerId}
+              onSaveSession={(type, duration, note) => {
+                if (selectedRacerId) addTrainingSession(selectedRacerId, type, duration, note);
+              }}
+              theme={theme}
+            />
+
+            {visibleSessions.length > 0 && (
+              <div className="mt-8">
+                <h3 className={`font-bold mb-4 ${theme === 'cute' ? 'text-gray-700' :
+                  theme === 'tech' ? 'text-slate-300' :
+                    theme === 'dark' ? 'text-gray-200' :
+                      'text-gray-800'
+                  }`}>
+                  最近訓練紀錄
+                </h3>
+                <TrainingLog
+                  racers={racers}
+                  sessions={currentRacerSessions.length > 0 ? currentRacerSessions : visibleSessions}
+                  onDeleteSession={deleteTrainingSession}
+                  theme={theme}
+                />
+              </div>
+            )}
+          </div>
+        );
       case 'racers':
         return (
           <div className="animate-fade-in">
-            <RacerManagement 
-              racers={racers} 
-              selectedRacerId={selectedRacerId} 
+            <RacerManagement
+              racers={racers}
+              selectedRacerId={selectedRacerId}
               onSelectRacer={setSelectedRacerId}
               onAddRacer={addRacer}
               onUpdateRacer={updateRacer}
@@ -220,30 +314,29 @@ function App() {
       case 'analysis':
         return (
           <div className="animate-fade-in">
-            <h2 className={`text-xl font-bold mb-6 flex items-center gap-2 ${
-              theme === 'cute' ? 'text-gray-800' :
+            <h2 className={`text-xl font-bold mb-6 flex items-center gap-2 ${theme === 'cute' ? 'text-gray-800' :
               theme === 'tech' ? 'text-slate-200' :
-              theme === 'dark' ? 'text-gray-200' :
-              'text-gray-900'
-            }`}>
+                theme === 'dark' ? 'text-gray-200' :
+                  'text-gray-900'
+              }`}>
               <BarChart2 className={
                 theme === 'cute' ? 'text-pink-500' :
-                theme === 'tech' ? 'text-cyan-400' :
-                theme === 'dark' ? 'text-gray-400' :
-                'text-gray-700'
+                  theme === 'tech' ? 'text-cyan-400' :
+                    theme === 'dark' ? 'text-gray-400' :
+                      'text-gray-700'
               } />
               數據分析（僅顯示公開資料）
             </h2>
-            <Analysis 
-              racers={racers} 
-              records={selectedRacerId 
+            <Analysis
+              racers={racers}
+              records={selectedRacerId
                 ? [
-                    ...getCurrentRacerRecords(selectedRacerId), // 選中選手的全部記錄（不管是否公開）
-                    ...visibleRecords.filter(r => r.racerId !== selectedRacerId) // 其他公開選手的記錄
-                  ]
+                  ...getCurrentRacerRecords(selectedRacerId), // 選中選手的全部記錄（不管是否公開）
+                  ...visibleRecords.filter(r => r.racerId !== selectedRacerId) // 其他公開選手的記錄
+                ]
                 : visibleRecords // 沒有選中選手時，只顯示公開資料
-              } 
-              theme={theme} 
+              }
+              theme={theme}
             />
           </div>
         );
@@ -280,14 +373,13 @@ function App() {
   }
 
   return (
-    <div 
+    <div
       data-theme={theme}
-      className={`min-h-screen pb-24 max-w-md mx-auto shadow-2xl overflow-hidden relative transition-colors duration-300 ${
-        theme === 'cute' ? 'bg-rose-50' :
+      className={`min-h-screen pb-24 max-w-md mx-auto shadow-2xl overflow-hidden relative transition-colors duration-300 ${theme === 'cute' ? 'bg-rose-50' :
         theme === 'tech' ? 'bg-slate-900' :
-        theme === 'dark' ? 'bg-gray-900' :
-        'bg-white'
-      }`}
+          theme === 'dark' ? 'bg-gray-900' :
+            'bg-white'
+        }`}
     >
       {/* Header */}
       <header className={`${currentTheme.styles.headerBg} pt-6 pb-4 px-6 sticky top-0 z-20 shadow-lg`}>
@@ -313,18 +405,16 @@ function App() {
       <main className="p-6">
         {(isLoadingRacers || isLoadingRecords) && (
           <div className="flex flex-col items-center justify-center py-12">
-            <Loader2 className={`w-8 h-8 animate-spin ${
-              theme === 'cute' ? 'text-pink-500' :
+            <Loader2 className={`w-8 h-8 animate-spin ${theme === 'cute' ? 'text-pink-500' :
               theme === 'tech' ? 'text-cyan-400' :
-              theme === 'dark' ? 'text-gray-400' :
-              'text-gray-600'
-            }`} />
-            <p className={`mt-4 text-sm ${
-              theme === 'cute' ? 'text-gray-600' :
+                theme === 'dark' ? 'text-gray-400' :
+                  'text-gray-600'
+              }`} />
+            <p className={`mt-4 text-sm ${theme === 'cute' ? 'text-gray-600' :
               theme === 'tech' ? 'text-slate-400' :
-              theme === 'dark' ? 'text-gray-400' :
-              'text-gray-600'
-            }`}>
+                theme === 'dark' ? 'text-gray-400' :
+                  'text-gray-600'
+              }`}>
               {isLoadingRacers ? '載入選手資料中...' : '載入紀錄資料中...'}
             </p>
           </div>
@@ -333,55 +423,61 @@ function App() {
       </main>
 
       {/* Bottom Navigation */}
-      <nav className={`fixed bottom-0 w-full max-w-md px-6 py-3 flex justify-between items-center z-30 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.1)] ${
-        theme === 'cute' ? 'bg-white border-t border-pink-100' :
+      <nav className={`fixed bottom-0 w-full max-w-md px-6 py-3 flex justify-between items-center z-30 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.1)] ${theme === 'cute' ? 'bg-white border-t border-pink-100' :
         theme === 'tech' ? 'bg-slate-800 border-t border-slate-700' :
-        theme === 'dark' ? 'bg-gray-800 border-t border-gray-700' :
-        'bg-white border-t border-gray-200'
-      }`}>
-        <button 
+          theme === 'dark' ? 'bg-gray-800 border-t border-gray-700' :
+            'bg-white border-t border-gray-200'
+        }`}>
+        <button
           onClick={() => setActiveTab('record')}
-          className={`flex flex-col items-center gap-1 transition-colors ${
-            activeTab === 'record' 
-              ? currentTheme.styles.navActive 
-              : currentTheme.styles.navInactive
-          }`}
+          className={`flex flex-col items-center gap-1 transition-colors ${activeTab === 'record'
+            ? currentTheme.styles.navActive
+            : currentTheme.styles.navInactive
+            }`}
         >
           <Timer size={24} strokeWidth={activeTab === 'record' ? 2.5 : 2} />
           <span className="text-[10px] font-bold">測速</span>
         </button>
-        
-        <button 
+
+        <button
           onClick={() => setActiveTab('history')}
-          className={`flex flex-col items-center gap-1 transition-colors ${
-            activeTab === 'history' 
-              ? currentTheme.styles.navActive 
-              : currentTheme.styles.navInactive
-          }`}
+          className={`flex flex-col items-center gap-1 transition-colors ${activeTab === 'history'
+            ? currentTheme.styles.navActive
+            : currentTheme.styles.navInactive
+            }`}
         >
           <History size={24} strokeWidth={activeTab === 'history' ? 2.5 : 2} />
           <span className="text-[10px] font-bold">紀錄</span>
         </button>
-        
-        <button 
+
+        <button
+          onClick={() => setActiveTab('training')}
+          className={`flex flex-col items-center gap-1 transition-colors ${activeTab === 'training'
+            ? currentTheme.styles.navActive
+            : currentTheme.styles.navInactive
+            }`}
+        >
+          <Zap size={24} strokeWidth={activeTab === 'training' ? 2.5 : 2} />
+          <span className="text-[10px] font-bold">訓練</span>
+        </button>
+
+        <button
           onClick={() => setActiveTab('racers')}
-          className={`flex flex-col items-center gap-1 transition-colors ${
-            activeTab === 'racers' 
-              ? currentTheme.styles.navActive 
-              : currentTheme.styles.navInactive
-          }`}
+          className={`flex flex-col items-center gap-1 transition-colors ${activeTab === 'racers'
+            ? currentTheme.styles.navActive
+            : currentTheme.styles.navInactive
+            }`}
         >
           <Users size={24} strokeWidth={activeTab === 'racers' ? 2.5 : 2} />
           <span className="text-[10px] font-bold">選手</span>
         </button>
-        
-        <button 
+
+        <button
           onClick={() => setActiveTab('analysis')}
-          className={`flex flex-col items-center gap-1 transition-colors ${
-            activeTab === 'analysis' 
-              ? currentTheme.styles.navActive 
-              : currentTheme.styles.navInactive
-          }`}
+          className={`flex flex-col items-center gap-1 transition-colors ${activeTab === 'analysis'
+            ? currentTheme.styles.navActive
+            : currentTheme.styles.navInactive
+            }`}
         >
           <BarChart2 size={24} strokeWidth={activeTab === 'analysis' ? 2.5 : 2} />
           <span className="text-[10px] font-bold">分析</span>
