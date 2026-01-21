@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { Trophy, Timer, History, BarChart2, Users, Loader2, Zap } from 'lucide-react';
+import { Trophy, Timer, History, BarChart2, Users, Loader2, Zap, BookOpen } from 'lucide-react';
 import { firebaseInitialized } from './firebase';
 import RacerList from './components/RacerList';
 import RacerManagement from './components/RacerManagement';
@@ -8,6 +8,8 @@ import HistoryLog from './components/HistoryLog';
 import Analysis from './components/Analysis';
 import TrainingTimer from './components/TrainingTimer';
 import TrainingLog from './components/TrainingLog';
+import LearningClassroom from './components/LearningClassroom';
+import CourseDetail from './components/CourseDetail';
 import ThemeSwitcher from './components/ThemeSwitcher';
 import { Distance } from './types';
 import { Theme, themes } from './themes';
@@ -18,9 +20,11 @@ import { useVisibleRecords } from './hooks/useVisibleRecords';
 import { useTrainingSessions } from './hooks/useTrainingSessions';
 import { useVisibleSessions } from './hooks/useVisibleSessions';
 import { getLocalDateStr } from './utils/dateUtils';
+import { courses } from './data/courses';
 
 function App() {
-  const [activeTab, setActiveTab] = useState<'record' | 'history' | 'analysis' | 'racers' | 'training'>('record');
+  const [activeTab, setActiveTab] = useState<'record' | 'history' | 'analysis' | 'racers' | 'training' | 'classroom'>('record');
+  const [selectedCourseId, setSelectedCourseId] = useState<string | null>(null);
   const [selectedRacerId, setSelectedRacerId] = useState<string | null>(() => {
     // 只從 sessionStorage 讀取（每個瀏覽器會話獨立，不同瀏覽器必須重新選擇）
     return sessionStorage.getItem('selected_racer_id');
@@ -318,6 +322,26 @@ function App() {
             />
           </div>
         );
+      case 'classroom':
+        const selectedCourse = courses.find(c => c.id === selectedCourseId);
+        
+        if (selectedCourse) {
+          return (
+            <CourseDetail 
+              course={selectedCourse} 
+              onBack={() => setSelectedCourseId(null)}
+              theme={theme}
+            />
+          );
+        }
+        
+        return (
+          <LearningClassroom 
+            courses={courses}
+            onSelectCourse={setSelectedCourseId}
+            theme={theme}
+          />
+        );
     }
   };
 
@@ -401,64 +425,78 @@ function App() {
       </main>
 
       {/* Bottom Navigation */}
-      <nav className={`fixed bottom-0 w-full max-w-md px-6 py-3 flex justify-between items-center z-30 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.1)] ${theme === 'cute' ? 'bg-white border-t border-pink-100' :
+      <nav className={`fixed bottom-0 w-full max-w-md px-2 py-3 flex justify-between items-center z-30 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.1)] overflow-x-auto no-scrollbar ${theme === 'cute' ? 'bg-white border-t border-pink-100' :
         theme === 'tech' ? 'bg-slate-800 border-t border-slate-700' :
           theme === 'dark' ? 'bg-gray-800 border-t border-gray-700' :
             'bg-white border-t border-gray-200'
         }`}>
         <button
           onClick={() => setActiveTab('record')}
-          className={`flex flex-col items-center gap-1 transition-colors ${activeTab === 'record'
+          className={`flex flex-col items-center gap-1 transition-colors flex-shrink-0 ${activeTab === 'record'
             ? currentTheme.styles.navActive
             : currentTheme.styles.navInactive
             }`}
         >
-          <Timer size={24} strokeWidth={activeTab === 'record' ? 2.5 : 2} />
-          <span className="text-[10px] font-bold">測速</span>
+          <Timer size={22} strokeWidth={activeTab === 'record' ? 2.5 : 2} />
+          <span className="text-[9px] font-bold">測速</span>
         </button>
 
         <button
           onClick={() => setActiveTab('history')}
-          className={`flex flex-col items-center gap-1 transition-colors ${activeTab === 'history'
+          className={`flex flex-col items-center gap-1 transition-colors flex-shrink-0 ${activeTab === 'history'
             ? currentTheme.styles.navActive
             : currentTheme.styles.navInactive
             }`}
         >
-          <History size={24} strokeWidth={activeTab === 'history' ? 2.5 : 2} />
-          <span className="text-[10px] font-bold">紀錄</span>
+          <History size={22} strokeWidth={activeTab === 'history' ? 2.5 : 2} />
+          <span className="text-[9px] font-bold">紀錄</span>
         </button>
 
         <button
           onClick={() => setActiveTab('training')}
-          className={`flex flex-col items-center gap-1 transition-colors ${activeTab === 'training'
+          className={`flex flex-col items-center gap-1 transition-colors flex-shrink-0 ${activeTab === 'training'
             ? currentTheme.styles.navActive
             : currentTheme.styles.navInactive
             }`}
         >
-          <Zap size={24} strokeWidth={activeTab === 'training' ? 2.5 : 2} />
-          <span className="text-[10px] font-bold">訓練</span>
+          <Zap size={22} strokeWidth={activeTab === 'training' ? 2.5 : 2} />
+          <span className="text-[9px] font-bold">訓練</span>
         </button>
 
         <button
           onClick={() => setActiveTab('racers')}
-          className={`flex flex-col items-center gap-1 transition-colors ${activeTab === 'racers'
+          className={`flex flex-col items-center gap-1 transition-colors flex-shrink-0 ${activeTab === 'racers'
             ? currentTheme.styles.navActive
             : currentTheme.styles.navInactive
             }`}
         >
-          <Users size={24} strokeWidth={activeTab === 'racers' ? 2.5 : 2} />
-          <span className="text-[10px] font-bold">選手</span>
+          <Users size={22} strokeWidth={activeTab === 'racers' ? 2.5 : 2} />
+          <span className="text-[9px] font-bold">選手</span>
         </button>
 
         <button
           onClick={() => setActiveTab('analysis')}
-          className={`flex flex-col items-center gap-1 transition-colors ${activeTab === 'analysis'
+          className={`flex flex-col items-center gap-1 transition-colors flex-shrink-0 ${activeTab === 'analysis'
             ? currentTheme.styles.navActive
             : currentTheme.styles.navInactive
             }`}
         >
-          <BarChart2 size={24} strokeWidth={activeTab === 'analysis' ? 2.5 : 2} />
-          <span className="text-[10px] font-bold">分析</span>
+          <BarChart2 size={22} strokeWidth={activeTab === 'analysis' ? 2.5 : 2} />
+          <span className="text-[9px] font-bold">分析</span>
+        </button>
+
+        <button
+          onClick={() => {
+            setActiveTab('classroom');
+            setSelectedCourseId(null); // 重置課程選擇
+          }}
+          className={`flex flex-col items-center gap-1 transition-colors flex-shrink-0 ${activeTab === 'classroom'
+            ? currentTheme.styles.navActive
+            : currentTheme.styles.navInactive
+            }`}
+        >
+          <BookOpen size={22} strokeWidth={activeTab === 'classroom' ? 2.5 : 2} />
+          <span className="text-[9px] font-bold">教室</span>
         </button>
       </nav>
     </div>

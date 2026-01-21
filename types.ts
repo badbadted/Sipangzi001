@@ -36,6 +36,21 @@ export interface TrainingSession {
   dateStr: string;
 }
 
+export type CourseCategory = 'basic' | 'advanced' | 'technique' | 'safety';
+
+export interface Course {
+  id: string;
+  title: string;
+  description: string;
+  content?: string; // 詳細內容描述（可選，支援 HTML）
+  videoUrl: string; // YouTube 影片網址（完整 URL 或 embed URL）
+  thumbnail?: string; // 課程縮圖 URL（可選）
+  duration?: string; // 影片時長，例如 "10:30"（可選）
+  category: CourseCategory; // 課程分類
+  order: number; // 排序順序
+  createdAt?: number; // 建立時間戳（可選）
+}
+
 export const AVATAR_COLORS = [
   'bg-red-500', 'bg-orange-500', 'bg-amber-500', 
   'bg-green-500', 'bg-emerald-500', 'bg-teal-500', 
