@@ -39,6 +39,7 @@ const RacerManagement: React.FC<RacerManagementProps> = ({
   const [showPasswordModal, setShowPasswordModal] = useState(false);
   const [pendingAction, setPendingAction] = useState<(() => void) | null>(null);
   const [currentRacerForAction, setCurrentRacerForAction] = useState<Racer | null>(null);
+  const [showAddPasswordModal, setShowAddPasswordModal] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const editFileInputRef = useRef<HTMLInputElement>(null);
 
@@ -274,6 +275,16 @@ const RacerManagement: React.FC<RacerManagementProps> = ({
     return false;
   };
 
+  const handleAddPasswordVerify = (inputPassword: string): boolean => {
+    // 新增選手時必須輸入密碼 TED
+    if (inputPassword.toUpperCase() === SUPER_PASSWORD) {
+      setIsAdding(true);
+      setShowAddPasswordModal(false);
+      return true;
+    }
+    return false;
+  };
+
   const handleEditFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
@@ -312,7 +323,23 @@ const RacerManagement: React.FC<RacerManagementProps> = ({
           選手管理
         </h2>
         <button 
-          onClick={() => setIsAdding(!isAdding)}
+          onClick={() => {
+            if (isAdding) {
+              // 取消新增
+              setIsAdding(false);
+              setNewName('');
+              setAvatarPreview(null);
+              setPassword('');
+              setRequirePassword(false);
+              setIsPublic(false);
+              if (fileInputRef.current) {
+                fileInputRef.current.value = '';
+              }
+            } else {
+              // 開始新增前先驗證密碼
+              setShowAddPasswordModal(true);
+            }
+          }}
           className={`text-sm font-medium flex items-center gap-2 px-4 py-2 rounded-lg transition-colors ${
             theme === 'cute' ? 'bg-pink-100 text-pink-700 hover:bg-pink-200' :
             theme === 'tech' ? 'bg-cyan-500/20 text-cyan-400 hover:bg-cyan-500/30' :
@@ -894,7 +921,7 @@ const RacerManagement: React.FC<RacerManagementProps> = ({
         </div>
       )}
 
-      {/* 密碼驗證彈窗 */}
+      {/* 密碼驗證彈窗（編輯/刪除選手用） */}
       <PasswordModal
         isOpen={showPasswordModal}
         onClose={() => {
@@ -904,6 +931,17 @@ const RacerManagement: React.FC<RacerManagementProps> = ({
         }}
         onVerify={handlePasswordVerify}
         title={currentRacerForAction ? `驗證 ${currentRacerForAction.name} 的密碼` : '請輸入密碼'}
+        theme={theme}
+      />
+
+      {/* 新增選手密碼驗證彈窗 */}
+      <PasswordModal
+        isOpen={showAddPasswordModal}
+        onClose={() => {
+          setShowAddPasswordModal(false);
+        }}
+        onVerify={handleAddPasswordVerify}
+        title="新增選手需要驗證密碼"
         theme={theme}
       />
     </div>
