@@ -1,4 +1,4 @@
-import { Course } from '../types';
+import { Course, CourseCategory } from '../types';
 
 /**
  * 學習教室課程數據
@@ -28,7 +28,9 @@ export const courses: Course[] = [
     videoUrl: 'https://www.youtube.com/watch?v=dQw4w9WgXcQ', // 請替換為實際的影片 ID
     duration: '10:30',
     category: 'basic',
-    order: 1
+    order: 1,
+    requirePassword: true,
+    password: '1234'
   },
   {
     id: 'course-002',
@@ -46,7 +48,9 @@ export const courses: Course[] = [
     videoUrl: 'https://youtu.be/dQw4w9WgXcQ', // 請替換為實際的影片 ID
     duration: '8:15',
     category: 'advanced',
-    order: 2
+    order: 2,
+    requirePassword: true,
+    password: '1234'
   },
   {
     id: 'course-003',
@@ -69,7 +73,9 @@ export const courses: Course[] = [
     videoUrl: 'https://www.youtube.com/embed/dQw4w9WgXcQ', // 請替換為實際的影片 ID
     duration: '6:45',
     category: 'safety',
-    order: 3
+    order: 3,
+    requirePassword: true,
+    password: '1234'
   },
   {
     id: 'course-004',
@@ -87,7 +93,9 @@ export const courses: Course[] = [
     videoUrl: 'https://www.youtube.com/watch?v=dQw4w9WgXcQ', // 請替換為實際的影片 ID
     duration: '12:20',
     category: 'technique',
-    order: 4
+    order: 4,
+    requirePassword: true,
+    password: '1234'
   },
   {
     id: 'course-005',
@@ -105,7 +113,9 @@ export const courses: Course[] = [
     videoUrl: 'https://youtu.be/dQw4w9WgXcQ', // 請替換為實際的影片 ID
     duration: '9:10',
     category: 'technique',
-    order: 5
+    order: 5,
+    requirePassword: true,
+    password: '1234'
   }
 ];
 

@@ -1,8 +1,9 @@
 import React, { useState } from 'react';
-import { BookOpen, Play, Clock, ArrowRight } from 'lucide-react';
+import { BookOpen, Play, Clock, ArrowRight, Lock } from 'lucide-react';
 import { Course, CourseCategory } from '../types';
 import { Theme, themes } from '../themes';
 import { getTextColor, getTextSecondaryColor, getPrimaryColor } from '../themeUtils';
+import PasswordModal from './PasswordModal';
 
 interface LearningClassroomProps {
   courses: Course[];
@@ -17,6 +18,8 @@ const LearningClassroom: React.FC<LearningClassroomProps> = ({
 }) => {
   const currentTheme = themes[theme] || themes['light'];
   const [selectedCategory, setSelectedCategory] = useState<CourseCategory | 'all'>('all');
+  const [showPasswordModal, setShowPasswordModal] = useState(false);
+  const [pendingCourseId, setPendingCourseId] = useState<string | null>(null);
 
   const categories: { id: CourseCategory | 'all'; label: string }[] = [
     { id: 'all', label: '全部' },
@@ -43,6 +46,36 @@ const LearningClassroom: React.FC<LearningClassroomProps> = ({
       default:
         return 'bg-gray-100 text-gray-700';
     }
+  };
+
+  const handleCourseClick = (courseId: string) => {
+    const course = courses.find(c => c.id === courseId);
+    if (!course) return;
+
+    // 檢查是否需要密碼
+    if (course.requirePassword && course.password) {
+      setPendingCourseId(courseId);
+      setShowPasswordModal(true);
+    } else {
+      // 不需要密碼，直接進入
+      onSelectCourse(courseId);
+    }
+  };
+
+  const handlePasswordVerify = (inputPassword: string): boolean => {
+    if (!pendingCourseId) return false;
+    
+    const course = courses.find(c => c.id === pendingCourseId);
+    if (!course) return false;
+    
+    // 檢查課程密碼（不支援超級權限）
+    if (course.password && inputPassword === course.password) {
+      onSelectCourse(pendingCourseId);
+      setPendingCourseId(null);
+      return true;
+    }
+    
+    return false;
   };
 
   return (
@@ -98,12 +131,12 @@ const LearningClassroom: React.FC<LearningClassroomProps> = ({
           {filteredCourses.map(course => (
             <div
               key={course.id}
-              onClick={() => onSelectCourse(course.id)}
+              onClick={() => handleCourseClick(course.id)}
               className={`${currentTheme.styles.cardBg} p-4 rounded-xl shadow-sm border ${currentTheme.colors.border} cursor-pointer hover:shadow-md transition-all active:scale-95`}
             >
               <div className="flex items-start gap-4">
                 {/* 縮圖或圖示 */}
-                <div className={`w-20 h-20 rounded-lg flex items-center justify-center flex-shrink-0 ${
+                <div className={`w-20 h-20 rounded-lg flex items-center justify-center flex-shrink-0 relative ${
                   theme === 'cute' ? 'bg-pink-100' :
                   theme === 'tech' ? 'bg-cyan-500/20' :
                   theme === 'dark' ? 'bg-gray-700' :
@@ -123,13 +156,34 @@ const LearningClassroom: React.FC<LearningClassroomProps> = ({
                       'text-gray-600'
                     } size={32} />
                   )}
+                  {/* 鎖定圖示（如果有密碼） */}
+                  {course.requirePassword && course.password && (
+                    <div className={`absolute top-1 right-1 w-6 h-6 rounded-full flex items-center justify-center ${
+                      theme === 'cute' ? 'bg-pink-500' :
+                      theme === 'tech' ? 'bg-cyan-500' :
+                      theme === 'dark' ? 'bg-gray-600' :
+                      'bg-gray-700'
+                    }`}>
+                      <Lock size={12} className="text-white" />
+                    </div>
+                  )}
                 </div>
 
                 {/* 課程資訊 */}
                 <div className="flex-1 min-w-0">
-                  <h3 className={`font-bold text-lg mb-1 ${getTextColor(theme)}`}>
-                    {course.title}
-                  </h3>
+                  <div className="flex items-center gap-2 mb-1">
+                    <h3 className={`font-bold text-lg ${getTextColor(theme)}`}>
+                      {course.title}
+                    </h3>
+                    {course.requirePassword && course.password && (
+                      <Lock className={
+                        theme === 'cute' ? 'text-pink-500' :
+                        theme === 'tech' ? 'text-cyan-400' :
+                        theme === 'dark' ? 'text-gray-400' :
+                        'text-gray-600'
+                      } size={16} />
+                    )}
+                  </div>
                   <p className={`text-sm mb-2 line-clamp-2 ${getTextSecondaryColor(theme)}`}>
                     {course.description}
                   </p>
@@ -143,6 +197,11 @@ const LearningClassroom: React.FC<LearningClassroomProps> = ({
                     <span className={`px-2 py-0.5 rounded text-xs ${getCategoryColor(course.category)}`}>
                       {categories.find(c => c.id === course.category)?.label || course.category}
                     </span>
+                    {course.requirePassword && course.password && (
+                      <span className={`text-xs ${getTextSecondaryColor(theme)}`}>
+                        需要密碼
+                      </span>
+                    )}
                   </div>
                 </div>
 
@@ -160,6 +219,18 @@ const LearningClassroom: React.FC<LearningClassroomProps> = ({
           ))}
         </div>
       )}
+
+      {/* 密碼驗證彈窗 */}
+      <PasswordModal
+        isOpen={showPasswordModal}
+        onClose={() => {
+          setShowPasswordModal(false);
+          setPendingCourseId(null);
+        }}
+        onVerify={handlePasswordVerify}
+        title={pendingCourseId ? `請輸入 ${courses.find(c => c.id === pendingCourseId)?.title || '課程'} 的密碼` : '請輸入密碼'}
+        theme={theme}
+      />
     </div>
   );
 };

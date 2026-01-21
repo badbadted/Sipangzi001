@@ -49,6 +49,8 @@ export interface Course {
   category: CourseCategory; // 課程分類
   order: number; // 排序順序
   createdAt?: number; // 建立時間戳（可選）
+  password?: string; // 4位數字密碼（選填）
+  requirePassword?: boolean; // 是否需要密碼才能進入課程
 }
 
 export const AVATAR_COLORS = [
