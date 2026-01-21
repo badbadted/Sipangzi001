@@ -22,12 +22,7 @@ import { getLocalDateStr } from './utils/dateUtils';
 function App() {
   const [activeTab, setActiveTab] = useState<'record' | 'history' | 'analysis' | 'racers' | 'training'>('record');
   const [selectedRacerId, setSelectedRacerId] = useState<string | null>(() => {
-    // 優先從 URL 參數讀取（可分享連結），否則從 sessionStorage（每個分頁獨立）
-    const urlParams = new URLSearchParams(window.location.search);
-    const racerIdFromUrl = urlParams.get('racer');
-    if (racerIdFromUrl) {
-      return racerIdFromUrl;
-    }
+    // 只從 sessionStorage 讀取（每個瀏覽器會話獨立，不同瀏覽器必須重新選擇）
     return sessionStorage.getItem('selected_racer_id');
   });
   const [theme, setTheme] = useState<Theme>(() => {
@@ -65,19 +60,12 @@ function App() {
   // 確保主題配置存在，如果不存在則使用預設主題
   const currentTheme = themes[theme] || themes['light'];
 
-  // Save selected racer to sessionStorage (每個分頁獨立) 並更新 URL 參數
+  // Save selected racer to sessionStorage (每個瀏覽器會話獨立)
   useEffect(() => {
-    const url = new URL(window.location.href);
     if (selectedRacerId) {
       sessionStorage.setItem('selected_racer_id', selectedRacerId);
-      // 同時更新 URL（方便分享連結）
-      url.searchParams.set('racer', selectedRacerId);
-      window.history.replaceState({}, '', url.toString());
     } else {
       sessionStorage.removeItem('selected_racer_id');
-      // 清除 URL 參數
-      url.searchParams.delete('racer');
-      window.history.replaceState({}, '', url.toString());
     }
   }, [selectedRacerId]);
 
@@ -89,19 +77,13 @@ function App() {
       if (!selectedRacerId || !racers.find(r => r.id === selectedRacerId)) {
         // 嘗試從 sessionStorage 恢復（以防初始化時未正確讀取）
         const savedRacerId = sessionStorage.getItem('selected_racer_id');
-        // 也檢查 URL 參數
-        const urlParams = new URLSearchParams(window.location.search);
-        const racerIdFromUrl = urlParams.get('racer');
         
-        // 優先使用 URL 參數，然後是 sessionStorage
-        const candidateId = racerIdFromUrl || savedRacerId;
-        
-        if (candidateId && racers.find(r => r.id === candidateId)) {
-          // 如果找到有效的候選 ID，使用它
-          setSelectedRacerId(candidateId);
+        if (savedRacerId && racers.find(r => r.id === savedRacerId)) {
+          // 如果找到有效的保存 ID，使用它
+          setSelectedRacerId(savedRacerId);
         } else {
-          // 否則使用第一個選手
-          setSelectedRacerId(racers[0].id);
+          // 否則不自動選擇，讓用戶手動選擇（不同瀏覽器必須重新選擇）
+          // 不設置預設值，保持為 null
         }
       }
       // 如果 selectedRacerId 存在且有效，不需要做任何事（保留它）
@@ -109,10 +91,6 @@ function App() {
       // racers 載入完成但為空，清除選擇
       setSelectedRacerId(null);
       sessionStorage.removeItem('selected_racer_id');
-      // 清除 URL 參數
-      const url = new URL(window.location.href);
-      url.searchParams.delete('racer');
-      window.history.replaceState({}, '', url.toString());
     }
   }, [racers, selectedRacerId, isLoadingRacers]);
 
@@ -390,7 +368,7 @@ function App() {
             </div>
             <div>
               <h1 className="text-lg font-bold tracking-tight text-white">
-                滑步車測速紀錄
+                滑步車小幫手
               </h1>
               <p className="text-xs font-medium text-white/80">
                 Speedy Striders Tracker
