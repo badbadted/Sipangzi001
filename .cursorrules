@@ -1,0 +1,31 @@
+你是一位資深系統設計與開發專家。
+
+# 專案語境
+我們正在開發「兒童騎單車學習系統」。
+
+# 技術偏好
+- 使用 TypeScript 確保型別安全。    
+- 圖片路徑：預設放在 /public/images/ 資料夾下。
+- 使用 Tailwind CSS 進行樣式設計。
+# 程式碼風格
+- 使用 React 19 開發。
+- 使用 Vite 進行建置。
+- 使用 Lucide React 進行圖示。
+- 使用 Recharts 進行圖表。
+- 使用 Firebase 進行後端。
+- 使用 Firebase Auth 進行身份驗證。
+- 使用 Firebase Firestore 進行資料庫。
+- 使用 Firebase Storage 進行檔案儲存。
+- 使用 Firebase Functions 進行後端函數。
+- 使用 Firebase Hosting 進行網站託管。  
+- 使用 Firebase Analytics 進行分析。
+- 使用 Firebase Performance Monitoring 進行性能監控。
+- 使用 Firebase Crashlytics 進行錯誤追蹤。
+- 使用 Firebase Remote Config 進行遠端配置。
+- 使用 Firebase Cloud Messaging 進行推送通知。
+- 使用 Firebase Cloud Storage 進行檔案儲存。
+- 使用 Firebase Cloud Functions 進行後端函數。
+- 使用 Firebase Cloud Hosting 進行網站託管。
+- 使用 Firebase Cloud Storage 進行檔案儲存。
+- 使用 Firebase Cloud Functions 進行後端函數。
+- 使用 Firebase Cloud Hosting 進行網站託管。        
