@@ -12,34 +12,41 @@
  * 3. Embed URL: https://www.youtube.com/embed/VIDEO_ID
  * 
  * @param url YouTube 影片 URL
+ * @param disableShare 是否禁用分享功能（預設為 true）
  * @returns YouTube embed URL
  */
-export const getYouTubeEmbedUrl = (url: string): string => {
+export const getYouTubeEmbedUrl = (url: string, disableShare: boolean = true): string => {
   if (!url) return '';
+  
+  let videoId: string | null = null;
   
   // 如果是完整 URL: https://www.youtube.com/watch?v=VIDEO_ID
   if (url.includes('youtube.com/watch?v=')) {
-    const videoId = url.split('v=')[1]?.split('&')[0];
-    if (videoId) {
-      return `https://www.youtube.com/embed/${videoId}`;
-    }
+    videoId = url.split('v=')[1]?.split('&')[0] || null;
   }
-  
   // 如果是短網址: https://youtu.be/VIDEO_ID
-  if (url.includes('youtu.be/')) {
-    const videoId = url.split('youtu.be/')[1]?.split('?')[0];
-    if (videoId) {
-      return `https://www.youtube.com/embed/${videoId}`;
-    }
+  else if (url.includes('youtu.be/')) {
+    videoId = url.split('youtu.be/')[1]?.split('?')[0] || null;
+  }
+  // 如果已經是 embed URL
+  else if (url.includes('youtube.com/embed/')) {
+    videoId = url.split('embed/')[1]?.split('?')[0] || null;
   }
   
-  // 如果已經是 embed URL
-  if (url.includes('youtube.com/embed/')) {
+  if (!videoId) {
+    // 如果都不符合，返回原 URL（可能是其他影片平台）
     return url;
   }
   
-  // 如果都不符合，返回原 URL（可能是其他影片平台）
-  return url;
+  // 建立參數
+  const params = new URLSearchParams();
+  if (disableShare) {
+    params.append('modestbranding', '1'); // 減少 YouTube 品牌標識
+    params.append('rel', '0'); // 不顯示相關影片
+  }
+  
+  const queryString = params.toString();
+  return `https://www.youtube.com/embed/${videoId}${queryString ? '?' + queryString : ''}`;
 };
 
 /**

@@ -23,6 +23,10 @@ class ErrorBoundary extends Component<Props, State> {
     console.error('應用程式發生錯誤：', error, errorInfo);
   }
 
+  public resetError = () => {
+    this.setState({ hasError: false, error: null });
+  };
+
   public render() {
     if (this.state.hasError) {
       return (
@@ -40,12 +44,20 @@ class ErrorBoundary extends Component<Props, State> {
                 </pre>
               </details>
             )}
-            <button
-              onClick={() => window.location.reload()}
-              className="w-full bg-red-500 text-white py-2 px-4 rounded-lg font-bold hover:bg-red-600 transition-colors"
-            >
-              重新整理頁面
-            </button>
+            <div className="flex gap-3">
+              <button
+                onClick={this.resetError}
+                className="flex-1 bg-gray-500 text-white py-2 px-4 rounded-lg font-bold hover:bg-gray-600 transition-colors"
+              >
+                重試
+              </button>
+              <button
+                onClick={() => window.location.reload()}
+                className="flex-1 bg-red-500 text-white py-2 px-4 rounded-lg font-bold hover:bg-red-600 transition-colors"
+              >
+                重新整理頁面
+              </button>
+            </div>
           </div>
         </div>
       );

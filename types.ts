@@ -18,6 +18,7 @@ export interface Record {
   timeSeconds: number;
   timestamp: number;
   dateStr: string; // YYYY-MM-DD for easier grouping
+  recordType?: 'manual' | 'training'; // 區分輸入測速和訓練測速
 }
 
 export interface GroupedRecords {

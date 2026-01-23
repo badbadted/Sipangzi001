@@ -4,6 +4,7 @@ import { Racer, AVATAR_COLORS } from '../types';
 import { Theme, themes } from '../themes';
 import { getTextColor, getTextSecondaryColor, getPrimaryColor, getCardBgColor, getBorderColor } from '../themeUtils';
 import PasswordModal from './PasswordModal';
+import { SUPER_PASSWORD } from '../constants/passwords';
 
 interface RacerManagementProps {
   racers: Racer[];
@@ -14,8 +15,6 @@ interface RacerManagementProps {
   onDeleteRacer: (id: string) => void;
   theme: Theme;
 }
-
-const SUPER_PASSWORD = 'TED'; // 超級權限密碼
 
 const RacerManagement: React.FC<RacerManagementProps> = ({ 
   racers, 

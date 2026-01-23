@@ -2,6 +2,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import { Lock, X } from 'lucide-react';
 import { Theme, themes } from '../themes';
 import { getTextColor, getPrimaryColor } from '../themeUtils';
+import { SUPER_PASSWORD } from '../constants/passwords';
 
 interface PasswordModalProps {
   isOpen: boolean;
@@ -10,8 +11,6 @@ interface PasswordModalProps {
   title?: string;
   theme: Theme;
 }
-
-const SUPER_PASSWORD = 'TED'; // 超級權限密碼
 
 const PasswordModal: React.FC<PasswordModalProps> = ({ 
   isOpen, 

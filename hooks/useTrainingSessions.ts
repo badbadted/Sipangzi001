@@ -1,7 +1,6 @@
 import { useState, useEffect } from 'react';
 import { db, firebaseInitialized } from '../firebase';
-// @ts-ignore
-import { ref, onValue, push, set, remove } from 'firebase/database';
+import { ref, onValue, push, set, remove, DataSnapshot } from 'firebase/database';
 import { TrainingSession, TrainingType } from '../types';
 import { getLocalDateStr } from '../utils/dateUtils';
 
@@ -17,7 +16,7 @@ export const useTrainingSessions = () => {
 
         try {
             const trainingRef = ref(db, 'training_logs');
-            const unsubscribe = onValue(trainingRef, (snapshot: any) => {
+            const unsubscribe = onValue(trainingRef, (snapshot: DataSnapshot) => {
                 try {
                     const data = snapshot.val();
                     if (data) {

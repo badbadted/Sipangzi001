@@ -57,7 +57,7 @@ export const useRecords = (enablePagination: boolean = false) => {
     }
   }, [enablePagination]);
 
-  const addRecord = (racerId: string, distance: Distance, timeSeconds: number, tenMeterTime?: number) => {
+  const addRecord = (racerId: string, distance: Distance, timeSeconds: number, tenMeterTime?: number, recordType: 'manual' | 'training' = 'manual') => {
     if (!firebaseInitialized || !db) {
       alert('Firebase 未初始化，無法新增紀錄。請檢查環境變數設定。');
       return;
@@ -85,7 +85,8 @@ export const useRecords = (enablePagination: boolean = false) => {
         distance,
         timeSeconds,
         timestamp,
-        dateStr
+        dateStr,
+        recordType
       };
       
       // 儲存主要紀錄
@@ -104,7 +105,8 @@ export const useRecords = (enablePagination: boolean = false) => {
             distance: 10,
             timeSeconds: tenMeterTime,
             timestamp: timestamp + 1, // 稍微延後時間戳，確保排序正確
-            dateStr
+            dateStr,
+            recordType
           };
           
           set(tenMeterRecordRef, tenMeterRecord).catch((error) => {

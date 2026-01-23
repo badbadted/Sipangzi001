@@ -8,41 +8,61 @@ import { getTextColor, getTextSecondaryColor, getPrimaryColor, getCardBgColor, g
 interface AnalysisProps {
   records: Record[];
   racers: Racer[];
+  selectedRacerId: string | null; // 從 App 傳入選中的選手
   theme: Theme;
 }
 
-const Analysis: React.FC<AnalysisProps> = ({ records, racers, theme }) => {
+const Analysis: React.FC<AnalysisProps> = ({ records, racers, selectedRacerId, theme }) => {
   const currentTheme = themes[theme] || themes['light'];
-  const [selectedRacerId, setSelectedRacerId] = useState<string>(racers[0]?.id || '');
   const [selectedDistance, setSelectedDistance] = useState<Distance>(30);
+  const [recordTypeFilter, setRecordTypeFilter] = useState<'manual' | 'training'>('manual'); // 記錄類型篩選
 
-  // If no initial selection but racers exist, set default
+  // 確保距離選擇與記錄類型一致
   useEffect(() => {
-    if (!selectedRacerId && racers.length > 0) {
-      setSelectedRacerId(racers[0].id);
+    if (recordTypeFilter === 'training' && selectedDistance === 10) {
+      // 碼表測速不支援 10米，自動改為 30米
+      setSelectedDistance(30);
     }
-  }, [racers, selectedRacerId]);
+  }, [recordTypeFilter, selectedDistance]);
 
-  // 10米數據
+  // 過濾記錄：根據 recordTypeFilter 和 selectedRacerId
+  const filteredRecords = useMemo(() => {
+    if (!selectedRacerId) return [];
+    
+    let filtered = records.filter(r => r.racerId === selectedRacerId);
+    
+    // 根據記錄類型篩選
+    if (recordTypeFilter === 'manual') {
+      // 只顯示一般測速（recordType !== 'training' 或 undefined）
+      filtered = filtered.filter(r => r.recordType !== 'training');
+    } else if (recordTypeFilter === 'training') {
+      // 只顯示碼表測速
+      filtered = filtered.filter(r => r.recordType === 'training');
+    }
+    
+    return filtered;
+  }, [records, selectedRacerId, recordTypeFilter]);
+
+  // 10米數據 - 使用 filteredRecords
   const chartData10m = useMemo(() => {
     if (!selectedRacerId) return [];
     
-    return records
-      .filter(r => r.racerId === selectedRacerId && r.distance === 10)
+    return filteredRecords
+      .filter(r => r.distance === 10)
       .sort((a, b) => a.timestamp - b.timestamp)
       .map(r => ({
         date: r.dateStr.slice(5), // MM-DD
         time: r.timeSeconds,
         timestamp: r.timestamp
       }));
-  }, [selectedRacerId, records]);
+  }, [selectedRacerId, filteredRecords]);
 
-  // 30米但沒有10米的記錄
+  // 30米但沒有10米的記錄 - 使用 filteredRecords
   const chartData30mWithout10m = useMemo(() => {
     if (!selectedRacerId) return [];
     
-    const records30m = records.filter(r => r.racerId === selectedRacerId && r.distance === 30);
-    const records10m = records.filter(r => r.racerId === selectedRacerId && r.distance === 10);
+    const records30m = filteredRecords.filter(r => r.distance === 30);
+    const records10m = filteredRecords.filter(r => r.distance === 10);
     
     // 建立10米記錄的日期集合（包含時間戳接近的）
     const has10mDates = new Set<string>();
@@ -72,60 +92,60 @@ const Analysis: React.FC<AnalysisProps> = ({ records, racers, theme }) => {
         time: r.timeSeconds,
         timestamp: r.timestamp
       }));
-  }, [selectedRacerId, records]);
+  }, [selectedRacerId, filteredRecords]);
 
-  // 30米數據
+  // 30米數據 - 使用 filteredRecords
   const chartData30m = useMemo(() => {
     if (!selectedRacerId) return [];
     
-    return records
-      .filter(r => r.racerId === selectedRacerId && r.distance === 30)
+    return filteredRecords
+      .filter(r => r.distance === 30)
       .sort((a, b) => a.timestamp - b.timestamp)
       .map(r => ({
         date: r.dateStr.slice(5), // MM-DD
         time: r.timeSeconds,
         timestamp: r.timestamp
       }));
-  }, [selectedRacerId, records]);
+  }, [selectedRacerId, filteredRecords]);
 
-  // 50米數據
+  // 50米數據 - 使用 filteredRecords
   const chartData50m = useMemo(() => {
     if (!selectedRacerId) return [];
     
-    return records
-      .filter(r => r.racerId === selectedRacerId && r.distance === 50)
+    return filteredRecords
+      .filter(r => r.distance === 50)
       .sort((a, b) => a.timestamp - b.timestamp)
       .map(r => ({
         date: r.dateStr.slice(5), // MM-DD
         time: r.timeSeconds,
         timestamp: r.timestamp
       }));
-  }, [selectedRacerId, records]);
+  }, [selectedRacerId, filteredRecords]);
 
-  // 通用圖表數據（用於其他距離）
+  // 通用圖表數據（用於其他距離）- 使用 filteredRecords
   const chartData = useMemo(() => {
     if (!selectedRacerId) return [];
     
-    return records
-      .filter(r => r.racerId === selectedRacerId && r.distance === selectedDistance)
+    return filteredRecords
+      .filter(r => r.distance === selectedDistance)
       .sort((a, b) => a.timestamp - b.timestamp)
       .map(r => ({
         date: r.dateStr.slice(5), // MM-DD
         time: r.timeSeconds
       }));
-  }, [selectedRacerId, selectedDistance, records]);
+  }, [selectedRacerId, selectedDistance, filteredRecords]);
 
-  // 月份統計數據
+  // 月份統計數據 - 使用 filteredRecords
   const monthlyData = useMemo(() => {
     if (!selectedRacerId) return [];
     
-    const filteredRecords = records.filter(
-      r => r.racerId === selectedRacerId && r.distance === selectedDistance
+    const filtered = filteredRecords.filter(
+      r => r.distance === selectedDistance
     );
     
     // 按月份分組
     const monthlyGroups: { [key: string]: number[] } = {};
-    filteredRecords.forEach(r => {
+    filtered.forEach(r => {
       // 從 dateStr (YYYY-MM-DD) 提取年月 (YYYY-MM)
       const monthKey = r.dateStr.slice(0, 7); // YYYY-MM
       if (!monthlyGroups[monthKey]) {
@@ -145,18 +165,18 @@ const Analysis: React.FC<AnalysisProps> = ({ records, racers, theme }) => {
         monthLabel: `${month.slice(5)}月` // MM月
       }))
       .sort((a, b) => a.month.localeCompare(b.month)); // 按月份排序
-  }, [selectedRacerId, selectedDistance, records]);
+  }, [selectedRacerId, selectedDistance, filteredRecords]);
 
-  // 30米與10米秒數差值數據（僅當30米有對應的10米記錄時）
+  // 30米與10米秒數差值數據（僅當30米有對應的10米記錄時）- 使用 filteredRecords
   const timeDifferenceData = useMemo(() => {
     if (!selectedRacerId) return [];
     
     // 獲取該選手的30米和10米記錄
-    const records30m = records.filter(
-      r => r.racerId === selectedRacerId && r.distance === 30
+    const records30m = filteredRecords.filter(
+      r => r.distance === 30
     );
-    const records10m = records.filter(
-      r => r.racerId === selectedRacerId && r.distance === 10
+    const records10m = filteredRecords.filter(
+      r => r.distance === 10
     );
     
     // 配對30米和10米記錄，計算差值
@@ -217,7 +237,7 @@ const Analysis: React.FC<AnalysisProps> = ({ records, racers, theme }) => {
     
     // 按時間戳排序
     return differenceData.sort((a, b) => a.timestamp - b.timestamp);
-  }, [selectedRacerId, records]);
+  }, [selectedRacerId, filteredRecords]);
 
   // 判斷30米是否有關聯到10米的資料
   const has30mWith10m = useMemo(() => {
@@ -233,65 +253,119 @@ const Analysis: React.FC<AnalysisProps> = ({ records, racers, theme }) => {
     );
   }
 
+  if (!selectedRacerId) {
+    return (
+      <div className={`text-center py-10 ${getTextSecondaryColor(theme)}`}>
+        請先選擇選手以查看分析。
+      </div>
+    );
+  }
+
   // 根據選中的距離計算統計數據
   const bestTime = chartData.length > 0 ? Math.min(...chartData.map(d => d.time)) : 0;
   const avgTime = chartData.length > 0 ? (chartData.reduce((acc, curr) => acc + curr.time, 0) / chartData.length) : 0;
+
+  // 根據記錄類型決定顯示的距離選項
+  const availableDistances = recordTypeFilter === 'training' ? [30, 50] : [10, 30, 50];
 
   return (
     <div className="space-y-6 pb-8">
       {/* Controls */}
       <div className={`${currentTheme.styles.cardBg} p-4 rounded-xl shadow-sm border ${currentTheme.colors.border} space-y-4`}>
+        {/* 顯示當前選中的選手名稱 */}
         <div>
-            <label className={`block text-xs font-bold uppercase tracking-wide mb-2 ${getTextSecondaryColor(theme)}`}>
-              選手
-            </label>
-            <div className="flex gap-2 overflow-x-auto no-scrollbar pb-1">
-                {racers.map(r => (
-                    <button
-                        key={r.id}
-                        onClick={() => {
-                            setSelectedRacerId(r.id);
-                        }}
-                        className={`px-4 py-2 rounded-full text-sm font-medium whitespace-nowrap transition-colors ${
-                            selectedRacerId === r.id 
-                            ? `${r.avatarColor} text-white shadow-md` 
-                            : theme === 'cute' ? 'bg-gray-100 text-gray-600 hover:bg-gray-200' :
-                              theme === 'tech' ? 'bg-slate-700 text-slate-400 hover:bg-slate-600' :
-                              theme === 'dark' ? 'bg-gray-700 text-gray-400 hover:bg-gray-600' :
-                              'bg-gray-100 text-gray-600 hover:bg-gray-200'
-                        }`}
-                    >
-                        {r.name}
-                    </button>
-                ))}
-            </div>
+          <label className={`block text-xs font-bold uppercase tracking-wide mb-2 ${getTextSecondaryColor(theme)}`}>
+            選手
+          </label>
+          <div className={`p-3 rounded-lg ${theme === 'light' ? 'bg-gray-50 border border-gray-200' :
+            theme === 'vibrant' ? 'bg-yellow-50 border-2 border-gray-900' :
+            theme === 'pixel' ? 'bg-white border-2 border-black' :
+            theme === 'space' ? 'bg-indigo-800/50 border border-cyan-500/30' :
+            theme === 'playground' ? 'bg-red-50 border border-red-200' :
+            'bg-gray-50 border border-gray-200'
+          }`}>
+            <p className={`text-sm font-medium ${getTextColor(theme)}`}>
+              {racers.find(r => r.id === selectedRacerId)?.name || '未知選手'}
+            </p>
+          </div>
+        </div>
+
+        {/* 記錄類型篩選 */}
+        <div>
+          <label className={`block text-xs font-bold uppercase tracking-wide mb-2 ${getTextSecondaryColor(theme)}`}>
+            記錄類型
+          </label>
+          <div className="flex gap-2">
+            <button
+              onClick={() => {
+                setRecordTypeFilter('manual');
+                // 如果選擇一般測速且當前距離是 30 或 50，保持不變；如果是碼表測速切換到一般測速，且距離是 30 或 50，保持不變
+              }}
+              className={`flex-1 py-1.5 rounded-lg text-sm font-medium transition-colors ${
+                recordTypeFilter === 'manual'
+                  ? theme === 'cute' ? 'bg-pink-100 text-pink-700 border border-pink-200' :
+                    theme === 'tech' ? 'bg-cyan-500/20 text-cyan-300 border border-cyan-500/30' :
+                    theme === 'dark' ? 'bg-gray-600/30 text-gray-200 border border-gray-500/30' :
+                    'bg-gray-100 text-gray-700 border border-gray-300'
+                  : theme === 'cute' ? 'bg-white border border-gray-200 text-gray-600' :
+                    theme === 'tech' ? 'bg-slate-700 border border-slate-600 text-slate-400' :
+                    theme === 'dark' ? 'bg-gray-700 border border-gray-600 text-gray-400' :
+                    'bg-white border border-gray-200 text-gray-600'
+              }`}
+            >
+              一般測速
+            </button>
+            <button
+              onClick={() => {
+                setRecordTypeFilter('training');
+                // 如果切換到碼表測速且當前距離是 10，改為 30
+                if (selectedDistance === 10) {
+                  setSelectedDistance(30);
+                }
+              }}
+              className={`flex-1 py-1.5 rounded-lg text-sm font-medium transition-colors ${
+                recordTypeFilter === 'training'
+                  ? theme === 'cute' ? 'bg-pink-100 text-pink-700 border border-pink-200' :
+                    theme === 'tech' ? 'bg-cyan-500/20 text-cyan-300 border border-cyan-500/30' :
+                    theme === 'dark' ? 'bg-gray-600/30 text-gray-200 border border-gray-500/30' :
+                    'bg-gray-100 text-gray-700 border border-gray-300'
+                  : theme === 'cute' ? 'bg-white border border-gray-200 text-gray-600' :
+                    theme === 'tech' ? 'bg-slate-700 border border-slate-600 text-slate-400' :
+                    theme === 'dark' ? 'bg-gray-700 border border-gray-600 text-gray-400' :
+                    'bg-white border border-gray-200 text-gray-600'
+              }`}
+            >
+              碼表測速
+            </button>
+          </div>
         </div>
         
+        {/* 距離選擇器 - 根據記錄類型顯示不同選項 */}
         <div>
-            <label className={`block text-xs font-bold uppercase tracking-wide mb-2 ${getTextSecondaryColor(theme)}`}>
-              距離
-            </label>
-            <div className="flex gap-2">
-                {[10, 30, 50].map((d) => (
-                    <button
-                        key={d}
-                        onClick={() => setSelectedDistance(d as Distance)}
-                        className={`flex-1 py-1.5 rounded-lg text-sm font-medium transition-colors ${
-                            selectedDistance === d
-                            ? theme === 'cute' ? 'bg-pink-100 text-pink-700 border border-pink-200' :
-                              theme === 'tech' ? 'bg-cyan-500/20 text-cyan-300 border border-cyan-500/30' :
-                              theme === 'dark' ? 'bg-gray-600/30 text-gray-200 border border-gray-500/30' :
-                              'bg-gray-100 text-gray-700 border border-gray-300'
-                            : theme === 'cute' ? 'bg-white border border-gray-200 text-gray-600' :
-                              theme === 'tech' ? 'bg-slate-700 border border-slate-600 text-slate-400' :
-                              theme === 'dark' ? 'bg-gray-700 border border-gray-600 text-gray-400' :
-                              'bg-white border border-gray-200 text-gray-600'
-                        }`}
-                    >
-                        {d}m
-                    </button>
-                ))}
-            </div>
+          <label className={`block text-xs font-bold uppercase tracking-wide mb-2 ${getTextSecondaryColor(theme)}`}>
+            距離
+          </label>
+          <div className="flex gap-2">
+            {availableDistances.map((d) => (
+              <button
+                key={d}
+                onClick={() => setSelectedDistance(d as Distance)}
+                className={`flex-1 py-1.5 rounded-lg text-sm font-medium transition-colors ${
+                  selectedDistance === d
+                    ? theme === 'cute' ? 'bg-pink-100 text-pink-700 border border-pink-200' :
+                      theme === 'tech' ? 'bg-cyan-500/20 text-cyan-300 border border-cyan-500/30' :
+                      theme === 'dark' ? 'bg-gray-600/30 text-gray-200 border border-gray-500/30' :
+                      'bg-gray-100 text-gray-700 border border-gray-300'
+                    : theme === 'cute' ? 'bg-white border border-gray-200 text-gray-600' :
+                      theme === 'tech' ? 'bg-slate-700 border border-slate-600 text-slate-400' :
+                      theme === 'dark' ? 'bg-gray-700 border border-gray-600 text-gray-400' :
+                      'bg-white border border-gray-200 text-gray-600'
+                }`}
+              >
+                {d}m
+              </button>
+            ))}
+          </div>
         </div>
       </div>
 
@@ -556,7 +630,7 @@ const Analysis: React.FC<AnalysisProps> = ({ records, racers, theme }) => {
                       backgroundColor: currentTheme.styles.cardBg
                     }}
                     labelStyle={{color: getTextColor(theme), fontSize: '12px', fontWeight: 'bold'}}
-                    formatter={(value: number, name: string, props: any) => {
+                    formatter={(value: number, name: string, props: { payload?: { time30m: number; time10m: number } }) => {
                       if (name === 'difference' && props.payload) {
                         return [
                           `差值: ${value.toFixed(2)}s (30米: ${props.payload.time30m.toFixed(2)}s - 10米: ${props.payload.time10m.toFixed(2)}s)`,

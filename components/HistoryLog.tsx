@@ -37,9 +37,11 @@ const RecordItem = React.memo<RecordItemProps>(({ record, racer, theme, onDelete
           />
         ) : (
           <div className={`w-10 h-10 rounded-full flex items-center justify-center text-white font-bold text-sm ${racer?.avatarColor || (
-            theme === 'cute' ? 'bg-gray-400' :
-            theme === 'tech' ? 'bg-slate-600' :
-            theme === 'dark' ? 'bg-gray-600' :
+            theme === 'light' ? 'bg-gray-300' :
+            theme === 'vibrant' ? 'bg-yellow-400' :
+            theme === 'pixel' ? 'bg-black' :
+            theme === 'space' ? 'bg-cyan-500' :
+            theme === 'playground' ? 'bg-red-500' :
             'bg-gray-300'
           )}`}>
             {racer?.name[0] || '?'}
@@ -49,14 +51,38 @@ const RecordItem = React.memo<RecordItemProps>(({ record, racer, theme, onDelete
           <p className={`font-bold ${getTextColor(theme)}`}>
             {racer?.name || '未知選手'}
           </p>
-          <span className={`text-xs px-2 py-0.5 rounded font-medium ${
-            theme === 'cute' ? 'bg-gray-100 text-gray-500' :
-            theme === 'tech' ? 'bg-slate-700 text-slate-400' :
-            theme === 'dark' ? 'bg-gray-700 text-gray-400' :
-            'bg-gray-100 text-gray-500'
-          }`}>
-            {record.distance} 米
-          </span>
+          <div className="flex items-center gap-2">
+            <span className={`text-xs px-2 py-0.5 rounded font-medium ${
+              theme === 'light' ? 'bg-gray-100 text-gray-500' :
+              theme === 'vibrant' ? 'bg-yellow-100 text-yellow-700' :
+              theme === 'pixel' ? 'bg-black text-white' :
+              theme === 'space' ? 'bg-cyan-500/20 text-cyan-300' :
+              theme === 'playground' ? 'bg-red-100 text-red-700' :
+              'bg-gray-100 text-gray-500'
+            }`}>
+              {record.distance} 米
+            </span>
+            {/* 顯示記錄類型標籤 */}
+            {record.recordType && (
+              <span className={`text-xs px-2 py-0.5 rounded font-medium ${
+                record.recordType === 'training'
+                  ? theme === 'light' ? 'bg-blue-100 text-blue-600' :
+                      theme === 'vibrant' ? 'bg-yellow-200 text-yellow-800' :
+                      theme === 'pixel' ? 'bg-black text-white' :
+                      theme === 'space' ? 'bg-cyan-500/20 text-cyan-300' :
+                      theme === 'playground' ? 'bg-red-200 text-red-800' :
+                      'bg-blue-100 text-blue-600'
+                  : theme === 'light' ? 'bg-gray-100 text-gray-600' :
+                      theme === 'vibrant' ? 'bg-gray-200 text-gray-800' :
+                      theme === 'pixel' ? 'bg-gray-200 text-black' :
+                      theme === 'space' ? 'bg-indigo-800/50 text-cyan-200' :
+                      theme === 'playground' ? 'bg-gray-100 text-gray-700' :
+                      'bg-gray-100 text-gray-600'
+              }`}>
+                {record.recordType === 'training' ? '碼表測速' : '輸入測速'}
+              </span>
+            )}
+          </div>
         </div>
       </div>
       <div className="flex items-center gap-3 relative z-0">
@@ -130,9 +156,11 @@ const HistoryLog: React.FC<HistoryLogProps> = ({ records, racers, onDeleteRecord
     return (
       <div className={`text-center py-12 ${getTextSecondaryColor(theme)}`}>
         <div className={`w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4 ${
-          theme === 'cute' ? 'bg-pink-100' :
-          theme === 'tech' ? 'bg-slate-700' :
-          theme === 'dark' ? 'bg-gray-700' :
+          theme === 'light' ? 'bg-gray-100' :
+          theme === 'vibrant' ? 'bg-yellow-100' :
+          theme === 'pixel' ? 'bg-black' :
+          theme === 'space' ? 'bg-indigo-800/50' :
+          theme === 'playground' ? 'bg-red-100' :
           'bg-gray-100'
         }`}>
           <Calendar size={24} className={getPrimaryColor(theme)} />
@@ -154,13 +182,17 @@ const HistoryLog: React.FC<HistoryLogProps> = ({ records, racers, onDeleteRecord
             onClick={() => setSelectedDistance('all')}
             className={`flex-1 py-2 rounded-lg text-sm font-medium transition-colors ${
               selectedDistance === 'all'
-                ? theme === 'cute' ? 'bg-pink-100 text-pink-700 border border-pink-200' :
-                  theme === 'tech' ? 'bg-cyan-500/20 text-cyan-300 border border-cyan-500/30' :
-                  theme === 'dark' ? 'bg-gray-600/30 text-gray-200 border border-gray-500/30' :
+                ? theme === 'light' ? 'bg-gray-100 text-gray-700 border border-gray-300' :
+                  theme === 'vibrant' ? 'bg-yellow-100 text-yellow-700 border-2 border-gray-900' :
+                  theme === 'pixel' ? 'bg-black text-white border-2 border-white' :
+                  theme === 'space' ? 'bg-cyan-500/20 text-cyan-300 border border-cyan-500/30' :
+                  theme === 'playground' ? 'bg-red-100 text-red-700 border border-red-300' :
                   'bg-gray-100 text-gray-700 border border-gray-300'
-                : theme === 'cute' ? 'bg-white border border-gray-200 text-gray-600' :
-                  theme === 'tech' ? 'bg-slate-700 border border-slate-600 text-slate-400' :
-                  theme === 'dark' ? 'bg-gray-700 border border-gray-600 text-gray-400' :
+                : theme === 'light' ? 'bg-white border border-gray-200 text-gray-600' :
+                  theme === 'vibrant' ? 'bg-white border-2 border-gray-900 text-gray-600' :
+                  theme === 'pixel' ? 'bg-white border-2 border-black text-black' :
+                  theme === 'space' ? 'bg-indigo-800/50 border border-cyan-500/30 text-cyan-300' :
+                  theme === 'playground' ? 'bg-white border border-red-200 text-gray-600' :
                   'bg-white border border-gray-200 text-gray-600'
             }`}
           >
@@ -172,14 +204,18 @@ const HistoryLog: React.FC<HistoryLogProps> = ({ records, racers, onDeleteRecord
               onClick={() => setSelectedDistance(d as Distance)}
               className={`flex-1 py-2 rounded-lg text-sm font-medium transition-colors ${
                 selectedDistance === d
-                  ? theme === 'cute' ? 'bg-pink-100 text-pink-700 border border-pink-200' :
-                    theme === 'tech' ? 'bg-cyan-500/20 text-cyan-300 border border-cyan-500/30' :
-                    theme === 'dark' ? 'bg-gray-600/30 text-gray-200 border border-gray-500/30' :
-                    'bg-gray-100 text-gray-700 border border-gray-300'
-                  : theme === 'cute' ? 'bg-white border border-gray-200 text-gray-600' :
-                    theme === 'tech' ? 'bg-slate-700 border border-slate-600 text-slate-400' :
-                    theme === 'dark' ? 'bg-gray-700 border border-gray-600 text-gray-400' :
-                    'bg-white border border-gray-200 text-gray-600'
+                  ? theme === 'light' ? 'bg-gray-100 text-gray-700 border border-gray-300' :
+                      theme === 'vibrant' ? 'bg-yellow-100 text-yellow-700 border-2 border-gray-900' :
+                      theme === 'pixel' ? 'bg-black text-white border-2 border-white' :
+                      theme === 'space' ? 'bg-cyan-500/20 text-cyan-300 border border-cyan-500/30' :
+                      theme === 'playground' ? 'bg-red-100 text-red-700 border border-red-300' :
+                      'bg-gray-100 text-gray-700 border border-gray-300'
+                  : theme === 'light' ? 'bg-white border border-gray-200 text-gray-600' :
+                      theme === 'vibrant' ? 'bg-white border-2 border-gray-900 text-gray-600' :
+                      theme === 'pixel' ? 'bg-white border-2 border-black text-black' :
+                      theme === 'space' ? 'bg-indigo-800/50 border border-cyan-500/30 text-cyan-300' :
+                      theme === 'playground' ? 'bg-white border border-red-200 text-gray-600' :
+                      'bg-white border border-gray-200 text-gray-600'
               }`}
             >
               {d}m
@@ -191,9 +227,11 @@ const HistoryLog: React.FC<HistoryLogProps> = ({ records, racers, onDeleteRecord
       {filteredRecords.length === 0 ? (
         <div className={`text-center py-12 ${getTextSecondaryColor(theme)}`}>
           <div className={`w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4 ${
-            theme === 'cute' ? 'bg-pink-100' :
-            theme === 'tech' ? 'bg-slate-700' :
-            theme === 'dark' ? 'bg-gray-700' :
+            theme === 'light' ? 'bg-gray-100' :
+            theme === 'vibrant' ? 'bg-yellow-100' :
+            theme === 'pixel' ? 'bg-black' :
+            theme === 'space' ? 'bg-indigo-800/50' :
+            theme === 'playground' ? 'bg-red-100' :
             'bg-gray-100'
           }`}>
             <Calendar size={24} className={getPrimaryColor(theme)} />
@@ -206,15 +244,19 @@ const HistoryLog: React.FC<HistoryLogProps> = ({ records, racers, onDeleteRecord
           <div key={date} className="animate-fade-in">
             <div className="flex items-center gap-2 mb-3 px-1">
               <div className={`h-4 w-1 rounded-full ${
-                theme === 'cute' ? 'bg-pink-500' :
-                theme === 'tech' ? 'bg-cyan-500' :
-                theme === 'dark' ? 'bg-gray-500' :
+                theme === 'light' ? 'bg-gray-400' :
+                theme === 'vibrant' ? 'bg-yellow-500' :
+                theme === 'pixel' ? 'bg-black' :
+                theme === 'space' ? 'bg-cyan-500' :
+                theme === 'playground' ? 'bg-red-500' :
                 'bg-gray-400'
               }`}></div>
               <h3 className={`font-medium text-sm sticky top-0 py-2 z-10 w-full ${getTextSecondaryColor(theme)} ${
-                theme === 'cute' ? 'bg-rose-50' :
-                theme === 'tech' ? 'bg-slate-900' :
-                theme === 'dark' ? 'bg-gray-900' :
+                theme === 'light' ? 'bg-white' :
+                theme === 'vibrant' ? 'bg-yellow-50' :
+                theme === 'pixel' ? 'bg-white' :
+                theme === 'space' ? 'bg-indigo-900/40' :
+                theme === 'playground' ? 'bg-red-50' :
                 'bg-white'
               }`}>
                 {date} ({new Date(date).toLocaleDateString('zh-TW', { weekday: 'short' })})
@@ -264,9 +306,9 @@ const HistoryLog: React.FC<HistoryLogProps> = ({ records, racers, onDeleteRecord
               <button 
                 onClick={() => setDeleteId(null)}
                 className={`flex-1 py-3 px-4 font-bold rounded-xl active:scale-95 transition-transform ${
-                  theme === 'cute'
+                  theme === 'light' || theme === 'vibrant' || theme === 'pixel' || theme === 'playground'
                     ? 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                    : 'bg-slate-700 text-slate-300 hover:bg-slate-600'
+                    : 'bg-indigo-800/50 text-cyan-300 hover:bg-indigo-700/50'
                 }`}
               >
                 取消

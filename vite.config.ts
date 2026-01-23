@@ -6,8 +6,10 @@ export default defineConfig(({ mode }) => {
     const env = loadEnv(mode, '.', '');
     return {
       server: {
-        port: 3000,
-        host: '0.0.0.0',
+        port: 8080,
+        host: 'localhost',
+        strictPort: false, // 如果端口被佔用，自動嘗試下一個可用端口
+        open: true, // 自動開啟瀏覽器
       },
       plugins: [react()],
       resolve: {
