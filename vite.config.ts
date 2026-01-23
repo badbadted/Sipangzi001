@@ -6,9 +6,10 @@ export default defineConfig(({ mode }) => {
     const env = loadEnv(mode, '.', '');
     return {
       server: {
-        port: 8080,
+        port: 8080, // 使用端口 8080
         host: 'localhost',
-        strictPort: false, // 如果端口被佔用，自動嘗試下一個可用端口
+        strictPort: true, // 嚴格使用指定端口 8080，如果端口被占用則報錯，不會自動切換到 3000 或 3002
+        // 注意：此配置確保不會使用 3000 或 3002 端口
         open: true, // 自動開啟瀏覽器
       },
       plugins: [react()],
