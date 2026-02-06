@@ -321,33 +321,7 @@ const RacerManagement: React.FC<RacerManagementProps> = ({
         <h2 className={`text-xl font-bold ${getTextColor(theme)}`}>
           選手管理
         </h2>
-        <button 
-          onClick={() => {
-            if (isAdding) {
-              // 取消新增
-              setIsAdding(false);
-              setNewName('');
-              setAvatarPreview(null);
-              setPassword('');
-              setRequirePassword(false);
-              setIsPublic(false);
-              if (fileInputRef.current) {
-                fileInputRef.current.value = '';
-              }
-            } else {
-              // 開始新增前先驗證密碼
-              setShowAddPasswordModal(true);
-            }
-          }}
-          className={`text-sm font-medium flex items-center gap-2 px-4 py-2 rounded-lg transition-colors ${
-            theme === 'cute' ? 'bg-pink-100 text-pink-700 hover:bg-pink-200' :
-            theme === 'tech' ? 'bg-cyan-500/20 text-cyan-400 hover:bg-cyan-500/30' :
-            theme === 'dark' ? 'bg-gray-700 text-gray-200 hover:bg-gray-600' :
-            'bg-gray-100 text-gray-700 hover:bg-gray-200'
-          }`}
-        >
-          {isAdding ? <><X size={16} /> 取消</> : <><Plus size={16} /> 新增選手</>}
-        </button>
+        {/* 新增選手按鈕已隱藏 */}
       </div>
 
       {isAdding && (

@@ -113,7 +113,7 @@ const RacerList: React.FC<RacerListProps> = ({
             : 'bg-gray-50 border-gray-200'
         }`}>
           <p className={getTextSecondaryColor(theme)}>
-            請先選擇選手或前往「選手」頁面新增
+            請先選擇選手
           </p>
         </div>
       ) : (
@@ -139,7 +139,7 @@ const RacerList: React.FC<RacerListProps> = ({
               {selectedRacer.name}
             </p>
             <p className={`text-sm ${getTextSecondaryColor(theme)}`}>
-              點擊上方「管理選手」可切換或新增選手
+              點擊上方「管理選手」可切換選手
             </p>
           </div>
         </div>
