@@ -873,21 +873,7 @@ const RacerManagement: React.FC<RacerManagementProps> = ({
                 >
                   <Edit2 size={16} />
                 </button>
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    handleDeleteClick(racer);
-                  }}
-                  className={`px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
-                    theme === 'cute' ? 'bg-red-50 text-red-600 hover:bg-red-100' :
-                    theme === 'tech' ? 'bg-red-500/20 text-red-400 hover:bg-red-500/30' :
-                    theme === 'dark' ? 'bg-red-900/30 text-red-400 hover:bg-red-900/50' :
-                    'bg-red-50 text-red-600 hover:bg-red-100'
-                  }`}
-                  title="刪除選手"
-                >
-                  <Trash2 size={16} />
-                </button>
+                {/* 刪除選手按鈕已隱藏 */}
               </div>
             </div>
           ))}
