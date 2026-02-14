@@ -1,5 +1,5 @@
 import React, { useState, useRef } from 'react';
-import { Plus, User, Upload, X, Lock, Globe, Trophy, ArrowLeft, Loader2, Home, FileSpreadsheet, AlertTriangle, CheckCircle } from 'lucide-react';
+import { Plus, User, Upload, X, Lock, Globe, Trophy, ArrowLeft, Loader2, Home, FileSpreadsheet, CheckCircle } from 'lucide-react';
 import { AVATAR_COLORS, Distance, Record } from '../types';
 import { db, firebaseInitialized } from '../firebase';
 import { ref, push, set } from 'firebase/database';
@@ -28,118 +28,64 @@ const AdminPage: React.FC = () => {
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // 匯入紀錄
-  const [csvText, setCsvText] = useState('');
-  const [parsedRows, setParsedRows] = useState<Array<{
-    date: string;
-    name: string;
-    distance: number;
-    times: number[];
-    racerId: string | null;
-  }>>([]);
+  const [importRacerId, setImportRacerId] = useState('');
+  const [importDate, setImportDate] = useState(() => {
+    const d = new Date();
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+  });
+  const [importDistance, setImportDistance] = useState<Distance>(50);
+  const [importTimesText, setImportTimesText] = useState('');
   const [importResult, setImportResult] = useState<{ success: number; failed: number } | null>(null);
   const [isImporting, setIsImporting] = useState(false);
-  const csvFileInputRef = useRef<HTMLInputElement>(null);
 
-  // 解析 CSV/TSV 文字
-  const parseCsvText = (text: string) => {
-    const lines = text.trim().split('\n').filter(line => line.trim());
-    if (lines.length < 2) {
-      setParsedRows([]);
-      return;
-    }
-
-    // 跳過第一列（表頭）
-    const dataLines = lines.slice(1);
-    const rows = dataLines.map(line => {
-      // 支援 Tab 或逗號分隔
-      const cells = line.includes('\t') ? line.split('\t') : line.split(',');
-      const trimmed = cells.map(c => c.trim());
-
-      const date = trimmed[0] || '';
-      const name = trimmed[1] || '';
-      const distance = parseInt(trimmed[2] || '0', 10);
-      const times = trimmed.slice(3)
-        .map(v => parseFloat(v))
-        .filter(v => !isNaN(v) && v > 0);
-
-      // 比對選手名字
-      const matchedRacer = racers.find(r => r.name === name);
-
-      return {
-        date,
-        name,
-        distance,
-        times,
-        racerId: matchedRacer?.id || null,
-      };
-    });
-
-    setParsedRows(rows);
-    setImportResult(null);
-  };
-
-  const handleCsvFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    const reader = new FileReader();
-    reader.onload = (ev) => {
-      const text = ev.target?.result as string;
-      setCsvText(text);
-      parseCsvText(text);
-    };
-    reader.readAsText(file);
+  // 解析秒數文字：支援空白、頓號、逗號分隔
+  const parseTimes = (text: string): number[] => {
+    return text
+      .split(/[\s,、]+/)
+      .map(v => parseFloat(v.trim()))
+      .filter(v => !isNaN(v) && v > 0);
   };
 
   const handleImport = async () => {
-    if (!db) return;
+    if (!db || !importRacerId) return;
 
-    const validRows = parsedRows.filter(r => r.racerId && r.times.length > 0);
-    if (validRows.length === 0) return;
+    const times = parseTimes(importTimesText);
+    if (times.length === 0) return;
 
     setIsImporting(true);
     let success = 0;
     let failed = 0;
 
-    for (const row of validRows) {
-      const validDistance = ([10, 30, 50] as number[]).includes(row.distance) ? row.distance as Distance : null;
-      if (!validDistance || !row.racerId) {
-        failed += row.times.length;
-        continue;
-      }
+    const baseTimestamp = new Date(importDate + 'T00:00:00').getTime();
 
-      // 用日期產生基礎 timestamp
-      const baseTimestamp = new Date(row.date + 'T00:00:00').getTime();
-      if (isNaN(baseTimestamp)) {
-        failed += row.times.length;
-        continue;
-      }
-
-      for (let i = 0; i < row.times.length; i++) {
-        try {
-          const newRecordRef = push(ref(db, 'records'));
-          if (!newRecordRef.key) {
-            failed++;
-            continue;
-          }
-          const record: Record = {
-            id: newRecordRef.key,
-            racerId: row.racerId,
-            distance: validDistance,
-            timeSeconds: row.times[i],
-            timestamp: baseTimestamp + i, // 毫秒偏移確保排序
-            dateStr: row.date,
-            recordType: 'manual',
-          };
-          await set(newRecordRef, record);
-          success++;
-        } catch {
+    for (let i = 0; i < times.length; i++) {
+      try {
+        const newRecordRef = push(ref(db, 'records'));
+        if (!newRecordRef.key) {
           failed++;
+          continue;
         }
+        const record: Record = {
+          id: newRecordRef.key,
+          racerId: importRacerId,
+          distance: importDistance,
+          timeSeconds: times[i],
+          timestamp: baseTimestamp + i,
+          dateStr: importDate,
+          recordType: 'manual',
+        };
+        await set(newRecordRef, record);
+        success++;
+      } catch {
+        failed++;
       }
     }
 
     setImportResult({ success, failed });
     setIsImporting(false);
+    if (success > 0) {
+      setImportTimesText('');
+    }
   };
 
   // 圖片壓縮函數
@@ -521,118 +467,105 @@ const AdminPage: React.FC = () => {
             <FileSpreadsheet size={20} />
             匯入紀錄
           </h2>
-          <p className="text-sm text-gray-500">
-            CSV 格式：日期, 選手名字, 距離, 秒數1, 秒數2, ...（第一列為表頭，會自動跳過）
-          </p>
 
-          {/* 上傳 CSV 檔案 */}
+          {/* 選手 */}
           <div>
-            <input
-              ref={csvFileInputRef}
-              type="file"
-              accept=".csv,.tsv,.txt"
-              onChange={handleCsvFileSelect}
-              className="hidden"
-              id="csv-upload"
-            />
-            <label
-              htmlFor="csv-upload"
-              className="inline-flex items-center gap-2 px-4 py-2 rounded-lg cursor-pointer transition-colors bg-gray-100 text-gray-700 hover:bg-gray-200"
+            <label className="block text-sm font-bold mb-2 text-gray-800">選手</label>
+            <select
+              value={importRacerId}
+              onChange={(e) => setImportRacerId(e.target.value)}
+              className="w-full p-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-gray-500 focus:outline-none text-gray-900 bg-white"
             >
-              <Upload size={16} />
-              <span className="text-sm font-medium">上傳 CSV 檔案</span>
-            </label>
+              <option value="">請選擇選手</option>
+              {racers.map(r => (
+                <option key={r.id} value={r.id}>{r.name}</option>
+              ))}
+            </select>
           </div>
 
-          {/* 直接貼上文字 */}
+          {/* 日期 */}
           <div>
-            <label className="block text-sm font-bold mb-2 text-gray-800">
-              或直接貼上資料
-            </label>
-            <textarea
-              value={csvText}
-              onChange={(e) => {
-                setCsvText(e.target.value);
-                parseCsvText(e.target.value);
-              }}
-              placeholder={`日期\t選手名字\t距離\t秒數1\t秒數2\n2025-01-01\t小飛俠\t50\t7.5\t7.8`}
-              rows={5}
-              className="w-full p-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-gray-500 focus:outline-none text-gray-900 bg-white text-sm font-mono"
+            <label className="block text-sm font-bold mb-2 text-gray-800">日期</label>
+            <input
+              type="date"
+              value={importDate}
+              onChange={(e) => setImportDate(e.target.value)}
+              className="w-full p-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-gray-500 focus:outline-none text-gray-900 bg-white"
             />
           </div>
 
-          {/* 預覽表格 */}
-          {parsedRows.length > 0 && (
-            <div className="space-y-3">
-              <h3 className="text-sm font-bold text-gray-700">
-                預覽（共 {parsedRows.length} 列，{parsedRows.reduce((sum, r) => sum + r.times.length, 0)} 筆紀錄）
-              </h3>
-              <div className="overflow-x-auto border border-gray-200 rounded-lg">
-                <table className="w-full text-sm">
-                  <thead className="bg-gray-50">
-                    <tr>
-                      <th className="px-3 py-2 text-left text-gray-600 font-medium">日期</th>
-                      <th className="px-3 py-2 text-left text-gray-600 font-medium">選手</th>
-                      <th className="px-3 py-2 text-left text-gray-600 font-medium">距離</th>
-                      <th className="px-3 py-2 text-left text-gray-600 font-medium">秒數</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-gray-100">
-                    {parsedRows.map((row, i) => (
-                      <tr key={i} className={!row.racerId ? 'bg-red-50' : ''}>
-                        <td className="px-3 py-2 text-gray-800">{row.date}</td>
-                        <td className="px-3 py-2">
-                          <span className={row.racerId ? 'text-gray-800' : 'text-red-600 font-medium'}>
-                            {row.name}
-                          </span>
-                          {!row.racerId && (
-                            <span className="ml-1 inline-flex items-center text-red-500">
-                              <AlertTriangle size={12} className="mr-0.5" />
-                              <span className="text-xs">找不到選手</span>
-                            </span>
-                          )}
-                        </td>
-                        <td className="px-3 py-2 text-gray-800">{row.distance}m</td>
-                        <td className="px-3 py-2 text-gray-800">{row.times.join(', ')}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
+          {/* 距離 */}
+          <div>
+            <label className="block text-sm font-bold mb-2 text-gray-800">距離</label>
+            <div className="flex gap-2">
+              {([10, 30, 50] as Distance[]).map(d => (
+                <button
+                  key={d}
+                  type="button"
+                  onClick={() => setImportDistance(d)}
+                  className={`flex-1 py-3 rounded-xl font-bold text-sm transition-colors ${
+                    importDistance === d
+                      ? 'bg-gray-800 text-white'
+                      : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                  }`}
+                >
+                  {d}m
+                </button>
+              ))}
+            </div>
+          </div>
 
-              {/* 匯入結果 */}
-              {importResult && (
-                <div className={`flex items-center gap-2 px-4 py-3 rounded-xl text-sm font-medium ${
-                  importResult.failed > 0
-                    ? 'bg-yellow-50 border border-yellow-200 text-yellow-700'
-                    : 'bg-green-50 border border-green-200 text-green-700'
-                }`}>
-                  <CheckCircle size={16} />
-                  成功匯入 {importResult.success} 筆紀錄
-                  {importResult.failed > 0 && `，${importResult.failed} 筆失敗`}
-                </div>
-              )}
+          {/* 秒數 */}
+          <div>
+            <label className="block text-sm font-bold mb-2 text-gray-800">秒數</label>
+            <textarea
+              value={importTimesText}
+              onChange={(e) => {
+                setImportTimesText(e.target.value);
+                setImportResult(null);
+              }}
+              placeholder="輸入秒數，用空白、逗號或頓號分隔多筆&#10;例如：7.5 7.8 8.1 或 7.5,7.8,8.1 或 7.5、7.8、8.1"
+              rows={3}
+              className="w-full p-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-gray-500 focus:outline-none text-gray-900 bg-white text-sm"
+            />
+            {parseTimes(importTimesText).length > 0 && (
+              <p className="text-xs mt-1 text-gray-500">
+                已解析 {parseTimes(importTimesText).length} 筆：{parseTimes(importTimesText).join(', ')}
+              </p>
+            )}
+          </div>
 
-              {/* 匯入按鈕 */}
-              <button
-                onClick={handleImport}
-                disabled={isImporting || parsedRows.every(r => !r.racerId || r.times.length === 0)}
-                className="w-full bg-gray-800 hover:bg-gray-900 text-white px-4 py-3 rounded-xl font-bold disabled:opacity-50 transition-colors flex items-center justify-center gap-2 shadow-sm"
-              >
-                {isImporting ? (
-                  <>
-                    <Loader2 size={18} className="animate-spin" />
-                    匯入中...
-                  </>
-                ) : (
-                  <>
-                    <FileSpreadsheet size={18} />
-                    確認匯入
-                  </>
-                )}
-              </button>
+          {/* 匯入結果 */}
+          {importResult && (
+            <div className={`flex items-center gap-2 px-4 py-3 rounded-xl text-sm font-medium ${
+              importResult.failed > 0
+                ? 'bg-yellow-50 border border-yellow-200 text-yellow-700'
+                : 'bg-green-50 border border-green-200 text-green-700'
+            }`}>
+              <CheckCircle size={16} />
+              成功匯入 {importResult.success} 筆紀錄
+              {importResult.failed > 0 && `，${importResult.failed} 筆失敗`}
             </div>
           )}
+
+          {/* 匯入按鈕 */}
+          <button
+            onClick={handleImport}
+            disabled={isImporting || !importRacerId || !importDate || parseTimes(importTimesText).length === 0}
+            className="w-full bg-gray-800 hover:bg-gray-900 text-white px-4 py-3 rounded-xl font-bold disabled:opacity-50 transition-colors flex items-center justify-center gap-2 shadow-sm"
+          >
+            {isImporting ? (
+              <>
+                <Loader2 size={18} className="animate-spin" />
+                匯入中...
+              </>
+            ) : (
+              <>
+                <FileSpreadsheet size={18} />
+                確認匯入
+              </>
+            )}
+          </button>
         </div>
 
         {/* 現有選手列表 */}
