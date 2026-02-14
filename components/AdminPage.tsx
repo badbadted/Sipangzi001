@@ -1,7 +1,8 @@
 import React, { useState, useRef } from 'react';
-import { Plus, User, Upload, X, Lock, Globe, Trophy, ArrowLeft, Loader2, Home } from 'lucide-react';
-import { AVATAR_COLORS } from '../types';
-import { firebaseInitialized } from '../firebase';
+import { Plus, User, Upload, X, Lock, Globe, Trophy, ArrowLeft, Loader2, Home, FileSpreadsheet, AlertTriangle, CheckCircle } from 'lucide-react';
+import { AVATAR_COLORS, Distance, Record } from '../types';
+import { db, firebaseInitialized } from '../firebase';
+import { ref, push, set } from 'firebase/database';
 import { useRacers } from '../hooks/useRacers';
 import { useMyRacers } from '../hooks/useMyRacers';
 import PasswordModal from './PasswordModal';
@@ -25,6 +26,121 @@ const AdminPage: React.FC = () => {
   const [isPublic, setIsPublic] = useState(false);
   const [successMessage, setSuccessMessage] = useState('');
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // 匯入紀錄
+  const [csvText, setCsvText] = useState('');
+  const [parsedRows, setParsedRows] = useState<Array<{
+    date: string;
+    name: string;
+    distance: number;
+    times: number[];
+    racerId: string | null;
+  }>>([]);
+  const [importResult, setImportResult] = useState<{ success: number; failed: number } | null>(null);
+  const [isImporting, setIsImporting] = useState(false);
+  const csvFileInputRef = useRef<HTMLInputElement>(null);
+
+  // 解析 CSV/TSV 文字
+  const parseCsvText = (text: string) => {
+    const lines = text.trim().split('\n').filter(line => line.trim());
+    if (lines.length < 2) {
+      setParsedRows([]);
+      return;
+    }
+
+    // 跳過第一列（表頭）
+    const dataLines = lines.slice(1);
+    const rows = dataLines.map(line => {
+      // 支援 Tab 或逗號分隔
+      const cells = line.includes('\t') ? line.split('\t') : line.split(',');
+      const trimmed = cells.map(c => c.trim());
+
+      const date = trimmed[0] || '';
+      const name = trimmed[1] || '';
+      const distance = parseInt(trimmed[2] || '0', 10);
+      const times = trimmed.slice(3)
+        .map(v => parseFloat(v))
+        .filter(v => !isNaN(v) && v > 0);
+
+      // 比對選手名字
+      const matchedRacer = racers.find(r => r.name === name);
+
+      return {
+        date,
+        name,
+        distance,
+        times,
+        racerId: matchedRacer?.id || null,
+      };
+    });
+
+    setParsedRows(rows);
+    setImportResult(null);
+  };
+
+  const handleCsvFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+      const text = ev.target?.result as string;
+      setCsvText(text);
+      parseCsvText(text);
+    };
+    reader.readAsText(file);
+  };
+
+  const handleImport = async () => {
+    if (!db) return;
+
+    const validRows = parsedRows.filter(r => r.racerId && r.times.length > 0);
+    if (validRows.length === 0) return;
+
+    setIsImporting(true);
+    let success = 0;
+    let failed = 0;
+
+    for (const row of validRows) {
+      const validDistance = ([10, 30, 50] as number[]).includes(row.distance) ? row.distance as Distance : null;
+      if (!validDistance || !row.racerId) {
+        failed += row.times.length;
+        continue;
+      }
+
+      // 用日期產生基礎 timestamp
+      const baseTimestamp = new Date(row.date + 'T00:00:00').getTime();
+      if (isNaN(baseTimestamp)) {
+        failed += row.times.length;
+        continue;
+      }
+
+      for (let i = 0; i < row.times.length; i++) {
+        try {
+          const newRecordRef = push(ref(db, 'records'));
+          if (!newRecordRef.key) {
+            failed++;
+            continue;
+          }
+          const record: Record = {
+            id: newRecordRef.key,
+            racerId: row.racerId,
+            distance: validDistance,
+            timeSeconds: row.times[i],
+            timestamp: baseTimestamp + i, // 毫秒偏移確保排序
+            dateStr: row.date,
+            recordType: 'manual',
+          };
+          await set(newRecordRef, record);
+          success++;
+        } catch {
+          failed++;
+        }
+      }
+    }
+
+    setImportResult({ success, failed });
+    setIsImporting(false);
+  };
 
   // 圖片壓縮函數
   const compressImage = (file: File, maxWidth: number = 800, maxHeight: number = 800, quality: number = 0.8): Promise<string> => {
@@ -397,6 +513,126 @@ const AdminPage: React.FC = () => {
             <Plus size={18} />
             建立選手
           </button>
+        </div>
+
+        {/* 匯入紀錄 */}
+        <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200 space-y-4">
+          <h2 className="text-xl font-bold text-gray-800 flex items-center gap-2">
+            <FileSpreadsheet size={20} />
+            匯入紀錄
+          </h2>
+          <p className="text-sm text-gray-500">
+            CSV 格式：日期, 選手名字, 距離, 秒數1, 秒數2, ...（第一列為表頭，會自動跳過）
+          </p>
+
+          {/* 上傳 CSV 檔案 */}
+          <div>
+            <input
+              ref={csvFileInputRef}
+              type="file"
+              accept=".csv,.tsv,.txt"
+              onChange={handleCsvFileSelect}
+              className="hidden"
+              id="csv-upload"
+            />
+            <label
+              htmlFor="csv-upload"
+              className="inline-flex items-center gap-2 px-4 py-2 rounded-lg cursor-pointer transition-colors bg-gray-100 text-gray-700 hover:bg-gray-200"
+            >
+              <Upload size={16} />
+              <span className="text-sm font-medium">上傳 CSV 檔案</span>
+            </label>
+          </div>
+
+          {/* 直接貼上文字 */}
+          <div>
+            <label className="block text-sm font-bold mb-2 text-gray-800">
+              或直接貼上資料
+            </label>
+            <textarea
+              value={csvText}
+              onChange={(e) => {
+                setCsvText(e.target.value);
+                parseCsvText(e.target.value);
+              }}
+              placeholder={`日期\t選手名字\t距離\t秒數1\t秒數2\n2025-01-01\t小飛俠\t50\t7.5\t7.8`}
+              rows={5}
+              className="w-full p-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-gray-500 focus:outline-none text-gray-900 bg-white text-sm font-mono"
+            />
+          </div>
+
+          {/* 預覽表格 */}
+          {parsedRows.length > 0 && (
+            <div className="space-y-3">
+              <h3 className="text-sm font-bold text-gray-700">
+                預覽（共 {parsedRows.length} 列，{parsedRows.reduce((sum, r) => sum + r.times.length, 0)} 筆紀錄）
+              </h3>
+              <div className="overflow-x-auto border border-gray-200 rounded-lg">
+                <table className="w-full text-sm">
+                  <thead className="bg-gray-50">
+                    <tr>
+                      <th className="px-3 py-2 text-left text-gray-600 font-medium">日期</th>
+                      <th className="px-3 py-2 text-left text-gray-600 font-medium">選手</th>
+                      <th className="px-3 py-2 text-left text-gray-600 font-medium">距離</th>
+                      <th className="px-3 py-2 text-left text-gray-600 font-medium">秒數</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-100">
+                    {parsedRows.map((row, i) => (
+                      <tr key={i} className={!row.racerId ? 'bg-red-50' : ''}>
+                        <td className="px-3 py-2 text-gray-800">{row.date}</td>
+                        <td className="px-3 py-2">
+                          <span className={row.racerId ? 'text-gray-800' : 'text-red-600 font-medium'}>
+                            {row.name}
+                          </span>
+                          {!row.racerId && (
+                            <span className="ml-1 inline-flex items-center text-red-500">
+                              <AlertTriangle size={12} className="mr-0.5" />
+                              <span className="text-xs">找不到選手</span>
+                            </span>
+                          )}
+                        </td>
+                        <td className="px-3 py-2 text-gray-800">{row.distance}m</td>
+                        <td className="px-3 py-2 text-gray-800">{row.times.join(', ')}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+
+              {/* 匯入結果 */}
+              {importResult && (
+                <div className={`flex items-center gap-2 px-4 py-3 rounded-xl text-sm font-medium ${
+                  importResult.failed > 0
+                    ? 'bg-yellow-50 border border-yellow-200 text-yellow-700'
+                    : 'bg-green-50 border border-green-200 text-green-700'
+                }`}>
+                  <CheckCircle size={16} />
+                  成功匯入 {importResult.success} 筆紀錄
+                  {importResult.failed > 0 && `，${importResult.failed} 筆失敗`}
+                </div>
+              )}
+
+              {/* 匯入按鈕 */}
+              <button
+                onClick={handleImport}
+                disabled={isImporting || parsedRows.every(r => !r.racerId || r.times.length === 0)}
+                className="w-full bg-gray-800 hover:bg-gray-900 text-white px-4 py-3 rounded-xl font-bold disabled:opacity-50 transition-colors flex items-center justify-center gap-2 shadow-sm"
+              >
+                {isImporting ? (
+                  <>
+                    <Loader2 size={18} className="animate-spin" />
+                    匯入中...
+                  </>
+                ) : (
+                  <>
+                    <FileSpreadsheet size={18} />
+                    確認匯入
+                  </>
+                )}
+              </button>
+            </div>
+          )}
         </div>
 
         {/* 現有選手列表 */}
